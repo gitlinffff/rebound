@@ -76,6 +76,7 @@ const double c = 2.99792458e8;         // speed of light.
 //double Fsun = 1367.0;  /* integrated stellar flux at 1 au, W/m^2 */
 const double SRP_coe = 1.0 * 1367.0/2.99792458e8 * 3.0/4.0/3000; // Q_pr * Fsun/c * 3.0/4.0/rho_dust
 
+
 int main(int argc, char* argv[]){
     
     // Set the number of OpenMP threads to be the number of processors
@@ -87,16 +88,19 @@ int main(int argc, char* argv[]){
 
     // Setup constants
     r->integrator          = REB_INTEGRATOR_IAS15;
-    r->dt                  = 1e0;    // Initial timestep, s
-//    r->N_active            = 3;     // Only the Sun and the Didymos-Dimorphos system are massive, the dust particles are treated as test particles
+    r->dt                  = 1e0;                  // Initial timestep, s
+    r->N_active            = 2;     // Only the Sun and the Didymos-Dimorphos system are massive, the dust particles are treated as test particles
 //    r->additional_forces   = force_radiation;
     r->heartbeat           = heartbeat;
-    r->G                   = 6.6743e-11; //  m^3 / kg s^2
-    
-//    double r_Didy_Bary = sqrt(pow(r_Didy_Bary_x,2.) + pow(r_Didy_Bary_y,2.) + pow(r_Didy_Bary_z,2.));
-    reb_simulation_configure_box(r,sep_system*5.,1,1,1);    
+    r->G                   = 6.6743e-11;           //  m^3 / kg s^2
+    r->gravity             = REB_GRAVITY_TREE;     //initialize the tree structure
+    r->collision           = REB_COLLISION_TREE;
 
-    
+    //    double r_Didy_Bary = sqrt(pow(r_Didy_Bary_x,2.) + pow(r_Didy_Bary_y,2.) + pow(r_Didy_Bary_z,2.));
+    reb_simulation_configure_box(r,sep_system*1000.,2,2,2);    
+#ifdef MPI    
+    reb_mpi_init(r);
+#endif
     // Didymos
     double mass_didy = mass_system*vol_didy/(vol_didy+vol_dimor);
     double mass_dimor = mass_system*vol_dimor/(vol_didy+vol_dimor);
@@ -130,16 +134,16 @@ int main(int argc, char* argv[]){
     reb_simulation_add(r, Dimorphos);
     
     // Sun
-    struct reb_particle star = {0};
-    star.m  = mass_star;
+//    struct reb_particle star = {0};
+//    star.m  = mass_star;
 //    star.r  = radius_star;
-    star.x = - T11 * r_Didy_Bary_x - T12 * r_Didy_Bary_y - T13 * r_Didy_Bary_z;
-    star.y = - T21 * r_Didy_Bary_x - T22 * r_Didy_Bary_y - T23 * r_Didy_Bary_z;
-    star.z = - T31 * r_Didy_Bary_x - T32 * r_Didy_Bary_y - T33 * r_Didy_Bary_z;
-    star.hash = 3;
-    reb_simulation_add(r, star);
+//    star.x = - T11 * r_Didy_Bary_x - T12 * r_Didy_Bary_y - T13 * r_Didy_Bary_z;
+//    star.y = - T21 * r_Didy_Bary_x - T22 * r_Didy_Bary_y - T23 * r_Didy_Bary_z;
+//    star.z = - T31 * r_Didy_Bary_x - T32 * r_Didy_Bary_y - T33 * r_Didy_Bary_z;
+//    star.hash = 3;
+//    reb_simulation_add(r, star);
 
-    unsigned int N_particles = 3; // current number of particles (didy, dimor, sun)
+    unsigned int N_particles = 2; // current number of particles (didy, dimor, sun)
     
     // Dust particles
     if (1){
@@ -150,14 +154,18 @@ int main(int argc, char* argv[]){
 	}
 
 	ReadParticle rp;
-
+	int count = 0;
 	while (fscanf(dust_file, "%lf %lf %lf %lf %lf %lf %lf %lf %lf",
 			&rp.ID, &rp.x, &rp.y, &rp.z, &rp.vx, &rp.vy, &rp.vz, &rp.mass, &rp.density) == 9) {
-	    transform(&rp, r_dimor_com);
+            count++;
+            if (count % 10 != 0)  // add 1 dust partice per 10 records from the dust file
+                continue;
+
+    	    transform(&rp, r_dimor_com);
 
 	    struct reb_particle p = {0};
-	    p.m = rp.mass;
- 	    //p.r = r_dust;  ///////////////modifying SRP_coe is also required?
+	    //p.m = rp.mass;
+	    //p.r = r_dust;  ///////////////modifying SRP_coe is also required?
 	    p.x = rp.x;
 	    p.y = rp.y;
 	    p.z = rp.z;
@@ -182,11 +190,15 @@ int main(int argc, char* argv[]){
     fprintf(stdout, "Total particle number: %i\n", N_particles);
     
 //    reb_simulation_move_to_hel(r);
-
     system("rm -v particles.txt");
     system("rm -v collide.txt");
 
-    reb_simulation_integrate(r, INFINITY);
+    reb_simulation_integrate(r, tmax);
+#ifdef MPI    
+    reb_mpi_finalize(r);
+#endif
+    reb_simulation_free(r);
+    
     fprintf(stdout, "\n");
 }
 
@@ -342,7 +354,7 @@ void reb_move_to_Didymos(struct reb_simulation* const r){
 void heartbeat(struct reb_simulation* r){
     
     // remove collide and escaped particles
-    if(reb_simulation_output_check(r, 60.0)){
+    if(0 && reb_simulation_output_check(r, 60.0)){
         
         struct reb_particle* particles = r->particles;
         const struct reb_particle Didymos = particles[0];

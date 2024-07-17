@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <math.h>
+#include <omp.h>
 #include "rebound.h"
 
 typedef struct {
@@ -79,7 +80,8 @@ const double SRP_coe = 1.0 * 1367.0/2.99792458e8 * 3.0/4.0/3000; // Q_pr * Fsun/
 int main(int argc, char* argv[]){
     
     // Set the number of OpenMP threads to be the number of processors
-    // omp_set_num_threads(4);
+    //int np = omp_get_num_procs();
+    omp_set_num_threads(32);
     
     // Setup simulation structure and 3D visualization server
     struct reb_simulation* r = reb_simulation_create();
@@ -87,13 +89,12 @@ int main(int argc, char* argv[]){
 
     // Setup constants
     r->integrator          = REB_INTEGRATOR_IAS15;
-    r->dt                  = 1e0;    // Initial timestep, s
-//    r->N_active            = 3;     // Only the Sun and the Didymos-Dimorphos system are massive, the dust particles are treated as test particles
+    r->dt                  = 1e1;    // Initial timestep, s
+    r->N_active            = 3;     // Only the Sun and the Didymos-Dimorphos system are massive, the dust particles are treated as test particles
 //    r->additional_forces   = force_radiation;
     r->heartbeat           = heartbeat;
     r->G                   = 6.6743e-11; //  m^3 / kg s^2
     
-//    double r_Didy_Bary = sqrt(pow(r_Didy_Bary_x,2.) + pow(r_Didy_Bary_y,2.) + pow(r_Didy_Bary_z,2.));
     reb_simulation_configure_box(r,sep_system*5.,1,1,1);    
 
     
@@ -104,7 +105,7 @@ int main(int argc, char* argv[]){
     double r_didy_com = -vol_dimor*sep_system/(vol_didy+vol_dimor); // distance of Didymos to center of mass of the system
     double v_didy_com = sqrt(-r->G*mass_dimor/pow(sep_system,2.0)*r_didy_com);
     Didymos.m    = mass_didy;
-//    Didymos.r    = 850.0/2.0;
+    Didymos.r    = 850.0/2.0;
     Didymos.x    = r_didy_com;
     Didymos.y    = 0.0;
     Didymos.z    = 0.0;
@@ -119,7 +120,7 @@ int main(int argc, char* argv[]){
     double r_dimor_com = vol_didy*sep_system/(vol_didy+vol_dimor);
     double v_dimor_com = sqrt(r->G*mass_didy/pow(sep_system,2.0)*r_dimor_com);
     Dimorphos.m    = mass_dimor;
-//    Dimorphos.r    = 175.0/2.0;
+    Dimorphos.r    = 175.0/2.0;
     Dimorphos.x    = r_dimor_com;
     Dimorphos.y    = 0.0;
     Dimorphos.z    = 0.0;
@@ -132,7 +133,6 @@ int main(int argc, char* argv[]){
     // Sun
     struct reb_particle star = {0};
     star.m  = mass_star;
-//    star.r  = radius_star;
     star.x = - T11 * r_Didy_Bary_x - T12 * r_Didy_Bary_y - T13 * r_Didy_Bary_z;
     star.y = - T21 * r_Didy_Bary_x - T22 * r_Didy_Bary_y - T23 * r_Didy_Bary_z;
     star.z = - T31 * r_Didy_Bary_x - T32 * r_Didy_Bary_y - T33 * r_Didy_Bary_z;
@@ -150,14 +150,14 @@ int main(int argc, char* argv[]){
 	}
 
 	ReadParticle rp;
-
 	while (fscanf(dust_file, "%lf %lf %lf %lf %lf %lf %lf %lf %lf",
 			&rp.ID, &rp.x, &rp.y, &rp.z, &rp.vx, &rp.vy, &rp.vz, &rp.mass, &rp.density) == 9) {
+
 	    transform(&rp, r_dimor_com);
 
 	    struct reb_particle p = {0};
-	    p.m = rp.mass;
- 	    //p.r = r_dust;  ///////////////modifying SRP_coe is also required?
+	    p.m = 0.0;
+	    p.r = r_dust;  ///////////////modifying SRP_coe is also required?
 	    p.x = rp.x;
 	    p.y = rp.y;
 	    p.z = rp.z;
@@ -180,13 +180,12 @@ int main(int argc, char* argv[]){
     }
 
     fprintf(stdout, "Total particle number: %i\n", N_particles);
-    
 //    reb_simulation_move_to_hel(r);
 
     system("rm -v particles.txt");
     system("rm -v collide.txt");
 
-    reb_simulation_integrate(r, INFINITY);
+    reb_simulation_integrate(r, tmax);
     fprintf(stdout, "\n");
 }
 
