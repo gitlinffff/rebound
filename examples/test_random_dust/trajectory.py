@@ -1,6 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.spatial.distance import norm
 from ReadParticle import read_particle 
 
 # Constants
@@ -14,45 +13,51 @@ mass_dimor = mass_system * vol_dimor / (vol_didy + vol_dimor)
 # Read particle and collision data
 N_particle, time, N_colDidy, N_colDimor, N_escape, r_dust, particle, data_c, data_p = read_particle('particles.txt', 'collide.txt')
 
-# Particles excluding escapers
-N_particle_cor = N_particle.copy()
-for i in range(len(N_escape)):
-    index_t = np.where(time >= N_escape[i, 0])[0]
-    if len(index_t) > 0:
-        N_particle_cor[index_t[0]:] += 1
+if (0):
+    # Particles excluding escapers
+    N_particle_cor = N_particle.copy()
+    for i in range(len(N_escape)):
+        index_t = np.where(np.array(time) >= N_escape[i,0],1,0)
+        N_particle_cor = N_particle_cor + index_t    # uncollided particles 
 
-R_hill = 70000  # Hill radius, m
-time_hill = []  # Time reach the boundary of the hill radius, s
-N_hill = []  # Particle ID
+    R_hill = 70000  # Hill radius, m
+    time_hill = []  # Time reach the boundary of the hill radius, s
+    N_hill = []  # Particle ID
 
-ii = 1
-for i in range(4, len(particle)):
-    for j in range(len(particle[i]['pos'])):
-        dis_Didy = np.linalg.norm(particle[i]['pos'][j] - particle[1]['pos'][j])
-        if dis_Didy > R_hill:
-            time_hill.append(time[j])
-            N_hill.append(particle[i]['ID'])
-            ii += 1
-            if particle[i]['id_collide'] < 3:
-                data_c = np.vstack((data_c, [3, particle[i]['ID'], time[j]]))
-            break
+    for i in range(3, len(particle)):
+        for j in range(len(particle[i]['pos'])):
+            dis_Didy = np.linalg.norm(particle[i]['pos'][j] - particle[0]['pos'][j])
+            if dis_Didy > R_hill:
+                time_hill.append(time[j])
+                N_hill.append(particle[i]['ID'])
+                if particle[i]['id_collide'] < 3:
+                    data_c = np.vstack((data_c, [3, particle[i]['ID'], time[j]]))
+                break
 
-time_sort = np.sort(time_hill)
-N_sort = np.arange(1, len(time_sort) + 1)
+    time_sort = np.sort(time_hill)
+    N_sort = np.arange(1, len(time_sort) + 1)
 
-# Particles including new-defined escapers
-N_particle_cor_esc = N_particle_cor.copy()
-for i in range(len(N_sort)):
-    index_t = np.where(time >= time_sort[i])[0]
-    if len(index_t) > 0:
-        N_particle_cor_esc[index_t[0]:] -= 1
+    # Particles including new-defined escapers
+    N_particle_cor_esc = N_particle_cor.copy()
+    for i in range(len(N_sort)):
+        index_t = np.where(np.array(time) >= time_sort[i],1,0)
+        N_particle_cor_esc = N_particle_cor_esc - index_t
+
 
 # Plotting
 plt.figure()
-plt.plot(np.insert(N_colDidy[:, 0], 0, 0) / 24 / 3600, np.insert(N_colDidy[:, 1], 0, 0) / N_particle[0] * 100, label='Didymos collider', linewidth=1.5)
-plt.plot(np.insert(N_colDimor[:, 0], 0, 0) / 24 / 3600, np.insert(N_colDimor[:, 1], 0, 0) / N_particle[0] * 100, label='Dimorphos collider', linewidth=1.5)
-plt.plot(np.insert(time_sort, 0, 0) / 24 / 3600, np.insert(N_sort, 0, 0) / N_particle[0] * 100, label='Escaped ejecta', linewidth=1.5)
-plt.plot(time / 24 / 3600, N_particle_cor_esc / N_particle[0] * 100, label='Remaining ejecta', linewidth=1.5)
+plt.plot(np.append(np.insert(N_colDidy[:,0],0,0),time[-1]) / 24 / 3600,
+         np.append(np.insert(N_colDidy[:,1],0,0),N_colDidy[-1,1]) / N_particle[0] * 100,
+         label='Didymos collider', linewidth=1.5)
+plt.plot(np.append(np.insert(N_colDimor[:,0],0,0),time[-1]) / 24 / 3600,
+         np.append(np.insert(N_colDimor[:,1],0,0),N_colDimor[-1,1]) / N_particle[0] * 100,
+         label='Dimorphos collider', linewidth=1.5)
+#  改到这了
+plt.plot(np.append(np.insert(N_escape[:,0],0,0),time[-1]) / 24 / 3600,
+         np.append(np.insert(N_escape[:,1],0,0),N_escape[-1,1]) / N_particle[0] * 100,
+         label='Escaped ejecta', linewidth=1.5)
+#plt.plot(np.insert(time_sort, 0, 0) / 24 / 3600, np.insert(N_sort, 0, 0) / N_particle[0] * 100, label='Escaped ejecta', linewidth=1.5)
+plt.plot(time / 24 / 3600, N_particle / N_particle[0] * 100, label='Remaining ejecta', linewidth=1.5)
 plt.xlabel('Time [days]')
 plt.ylabel('Ejecta type percentage [%]')
 plt.title('Dust particle radius r = 1 mm')
@@ -61,6 +66,7 @@ plt.grid()
 plt.savefig('ejecta_type.png',dpi=300)
 plt.close()
 
+exit()
 # Dimorphos orbit
 plt.figure()
 plt.plot(particle[2]['pos'][:, 0] - particle[1]['pos'][:, 0],
