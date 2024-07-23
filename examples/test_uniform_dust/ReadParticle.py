@@ -34,8 +34,8 @@ def read_particle(file_particle, file_collide):
                 pieces = struct.unpack('iid', file.read(16))  # Read int, int, double
             except struct.error:
                 break  # Break the loop if we run out of data to read
-            data_c.append(pieces)
-
+            data_c.append(list(pieces))
+    
     # Process data into individual particle information at initial time step
     particle_all = [{'ID': data_p[0][n, 0], 'id_collide': 0, 'time': time[-1], 'pos': data_p[0][n, 1:4], 'vel': data_p[0][n, 4:7]}
                     for n in range(N_particle[0])]
@@ -47,7 +47,7 @@ def read_particle(file_particle, file_collide):
             p_id = int(data_p[i][n, 0])
             particle_all[p_id-1]['pos'] = np.vstack((particle_all[p_id-1]['pos'], data_p[i][n, 1:4]))
             particle_all[p_id-1]['vel'] = np.vstack((particle_all[p_id-1]['vel'], data_p[i][n, 4:7]))
-
+    
     # Analyze collision data
     N_colDidy, N_colDimor, N_escape = np.empty((0,2)), np.empty((0,2)), np.empty((0,2))
     for flag_remove, p_id, time_new in data_c:
