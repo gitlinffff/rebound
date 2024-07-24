@@ -86,12 +86,7 @@ plt.savefig('dimor_orbit.png',dpi=300)
 plt.close()
 
 # Histogram for semi-major axis and eccentricity
-a_p = np.zeros(300*20)
-e_p = np.zeros(300*20)
-for i in range(300):
-    for j in range(20):
-        a_p[j + i * 20] = 500.0 + i * 20.0
-        e_p[j + i * 20] = j / 20.0
+p_ae = np.genfromtxt("a_e.csv", delimiter=',', skip_header=1)
 
 remain_id, didy_col_id, dimor_col_id, esc_id = [], [], [], []
 for i in range(len(particle)):
@@ -114,17 +109,17 @@ esc_id = np.array(esc_id)
 
 ## semimajor axis
 fig,axs = plt.subplots(2,2, figsize=(8,6), sharex='col')
-axs[0,0].hist(a_p[didy_col_id - 4], bins=np.arange(0, 6000, 200), label='Didymos collider')
+axs[0,0].hist(p_ae[didy_col_id - 4,1], bins=np.arange(0, 6000, 200), label='Didymos collider')
 axs[0,0].legend(fontsize='small')
 
-axs[0,1].hist(a_p[dimor_col_id - 4], bins=np.arange(0, 6000, 200), label='Dimorphos collider')
+axs[0,1].hist(p_ae[dimor_col_id - 4,1], bins=np.arange(0, 6000, 200), label='Dimorphos collider')
 axs[0,1].legend(fontsize='small')
 
-axs[1,0].hist(a_p[esc_id - 4], bins=np.arange(0, 6000, 200), label='Escaped ejecta')
+axs[1,0].hist(p_ae[esc_id - 4,1], bins=np.arange(0, 6000, 200), label='Escaped ejecta')
 axs[1,0].legend(fontsize='small')
 
 if len(remain_id) > 3: # exclude Didymos, Dimorphos and Sun
-    axs[1,1].hist(a_p[remain_id - 4], bins=np.arange(0, 6000, 200), label='Remaining ejecta')
+    axs[1,1].hist(p_ae[remain_id - 4,1], bins=np.arange(0, 6000, 200), label='Remaining ejecta')
     axs[1,1].legend(fontsize='small')
 
 fig.text(0.5, 0.04, 'Semimajor axis [m]' ,ha='center', va='center')
@@ -135,17 +130,17 @@ plt.close()
 
 ## eccentricity
 fig,axs = plt.subplots(2,2, figsize=(8,6), sharex='col')
-axs[0,0].hist(e_p[didy_col_id - 4], bins=np.arange(0,1,0.04), label='Didymos collider')
+axs[0,0].hist(p_ae[didy_col_id - 4,2], bins=np.arange(0,1,0.04), label='Didymos collider')
 axs[0,0].legend(fontsize='small')
 
-axs[0,1].hist(e_p[dimor_col_id - 4], bins=np.arange(0,1,0.04), label='Dimorphos collider')
+axs[0,1].hist(p_ae[dimor_col_id - 4,2], bins=np.arange(0,1,0.04), label='Dimorphos collider')
 axs[0,1].legend(fontsize='small')
 
-axs[1,0].hist(e_p[esc_id - 4], bins=np.arange(0,1,0.04), label='Escaped ejecta')
+axs[1,0].hist(p_ae[esc_id - 4,2], bins=np.arange(0,1,0.04), label='Escaped ejecta')
 axs[1,0].legend(fontsize='small')
 
 if len(remain_id) > 3: # exclude Didymos, Dimorphos and Sun
-    axs[1,1].hist(e_p[remain_id - 4], bins=np.arange(0,1,0.04), label='Remaining ejecta')
+    axs[1,1].hist(p_ae[remain_id - 4,2], bins=np.arange(0,1,0.04), label='Remaining ejecta')
     axs[1,1].legend(fontsize='small')
 
 fig.text(0.5, 0.04, 'Eccentricity' ,ha='center', va='center')
@@ -157,11 +152,13 @@ plt.close()
 # Scatter plot
 fate_list = np.array([p['id_collide'] for p in particle[3:]])
 plt.figure()
-plt.scatter(e_p[fate_list == 0], a_p[fate_list == 0], s=5, label='ID = 0')
-plt.scatter(e_p[fate_list == 1], a_p[fate_list == 1], s=5, label='ID = 1')
-plt.scatter(e_p[fate_list == 2], a_p[fate_list == 2], s=5, label='ID = 2')
-plt.scatter(e_p[fate_list == 3], a_p[fate_list == 3], s=5, label='ID = 3')
+plt.scatter(p_ae[fate_list == 0,2], p_ae[fate_list == 0,1], s=5, label='ID = 0')
+plt.scatter(p_ae[fate_list == 1,2], p_ae[fate_list == 1,1], s=5, label='ID = 1')
+plt.scatter(p_ae[fate_list == 2,2], p_ae[fate_list == 2,1], s=5, label='ID = 2')
+plt.scatter(p_ae[fate_list == 3,2], p_ae[fate_list == 3,1], s=5, label='ID = 3')
 plt.title('Dust particle radius r = 1 mm')
+plt.xlabel('Eccentricity')
+plt.ylabel('Semimajor axis [m]')
 plt.legend()
 plt.savefig('a_e.png',dpi=300)
 plt.close()

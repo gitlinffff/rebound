@@ -129,6 +129,13 @@ int main(int argc, char* argv[]){
     unsigned int N_omega = 1;
     unsigned int N_particles = 3;
 
+    FILE *f_ae = fopen("a_e.csv", "w");
+    if (f_ae == NULL) {
+	reb_simulation_error(r, "Can not open file: a_e.csv");
+	return 1;
+    }
+    fprintf(f_ae, "ID,a_p,e_p\n");
+
     srand(time(NULL));
     for ( unsigned int i = 0; i<N_a; i++ ) {
 	a_p = generate_random_double(500.0, 6500.0);
@@ -177,9 +184,9 @@ int main(int argc, char* argv[]){
                         
                         N_particles++;
                         p.hash = N_particles;
-                        
                         reb_simulation_add(r, p);
-                        
+                        fprintf(f_ae, "%d,%f,%f\n", N_particles, a_p, e_p);
+
                         if ( i_p < 1e-6 || e_p < 1e-6 )
                             break;
                     }
@@ -189,7 +196,7 @@ int main(int argc, char* argv[]){
             }
         }
     }
-    
+    fclose(f_ae);
     fprintf(stdout, "Total particle number: %i\n", N_particles);
     
     //reb_move_to_com(r);

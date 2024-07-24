@@ -164,7 +164,7 @@ plt.savefig('a_e.png',dpi=300)
 plt.close()
 
 # Scatter plot for time step N_t
-N_t = 12
+N_t = 0
 plt.figure()
 plt.scatter(data_p[N_t][3:, 1], data_p[N_t][3:, 2], c=data_p[N_t][3:, 3], s=3, cmap='viridis')
 plt.colorbar()

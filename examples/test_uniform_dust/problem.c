@@ -16,6 +16,7 @@
 #include <unistd.h>
 #include <math.h>
 #include "rebound.h"
+#include <omp.h>
 
 void force_radiation(struct reb_simulation* r);
 void heartbeat(struct reb_simulation* r);
@@ -60,7 +61,7 @@ const double SRP_coe = 1.0 * 1367.0/2.99792458e8 * 3.0/4.0/3000; // Q_pr * Fsun/
 int main(int argc, char* argv[]){
     
     // Set the number of OpenMP threads to be the number of processors
-    // omp_set_num_threads(4);
+    omp_set_num_threads(16);
     
     // Setup simulation structure and 3D visualization server
     struct reb_simulation* r = reb_simulation_create();
@@ -125,6 +126,14 @@ int main(int argc, char* argv[]){
     unsigned int N_Omega = 1;
     unsigned int N_omega = 1;
     unsigned int N_particles = 3;
+
+    FILE *f_ae = fopen("a_e.csv", "w");
+    if (f_ae == NULL) {
+        reb_simulation_error(r, "Can not open file: a_e.csv");
+        return 1;
+    }
+    fprintf(f_ae, "ID,a_p,e_p\n");
+
     for ( unsigned int i = 0; i<N_a; i++ ) {
         a_p = 500.0 + (double)i*20.0;
         for ( unsigned int j = 0; j<N_e; j++ ) {
@@ -172,9 +181,9 @@ int main(int argc, char* argv[]){
                         
                         N_particles++;
                         p.hash = N_particles;
-                        
                         reb_simulation_add(r, p);
-                        
+                        fprintf(f_ae, "%d,%f,%f\n", N_particles, a_p, e_p);
+
                         if ( i_p < 1e-6 || e_p < 1e-6 )
                             break;
                     }
@@ -184,7 +193,7 @@ int main(int argc, char* argv[]){
             }
         }
     }
-    
+    fclose(f_ae);
     fprintf(stdout, "Total particle number: %i\n", N_particles);
     
     //reb_move_to_com(r);
