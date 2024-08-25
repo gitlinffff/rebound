@@ -38,6 +38,8 @@ void transform(ReadParticle *p, double x_translation);
 void force_radiation(struct reb_simulation* r);
 void heartbeat(struct reb_simulation* r);
 
+// Define constants
+const double G_const = 6.6743e-11; //  m^3 / kg s^2
 const double AU = 1.495978707e11;
 const double mass_star = 1.9884e30;
 const double radius_star = 6.957e8;
@@ -93,7 +95,7 @@ int main(int argc, char* argv[]){
     r->N_active            = 3;     // Only the Sun and the Didymos-Dimorphos system are massive, the dust particles are treated as test particles
 //    r->additional_forces   = force_radiation;
     r->heartbeat           = heartbeat;
-    r->G                   = 6.6743e-11; //  m^3 / kg s^2
+    r->G                   = G_const;
     
     reb_simulation_configure_box(r,sep_system*5.,1,1,1);    
 
@@ -426,4 +428,33 @@ void heartbeat(struct reb_simulation* r){
         }
         fclose(fp);
     }
+}
+
+// math
+typedef struct {
+    double x;
+    double y;
+    double z;
+} Vector3;
+
+Vector3 crossProduct(Vector3 a, Vector3 b) {
+    Vector3 c;
+    c.x = a.y * b.z - a.z * b.y;
+    c.y = a.z * b.x - a.x * b.z;
+    c.z = a.x * b.y - a.y * b.x;
+    return c;
+}
+
+double vectorNorm(Vector3 v) {
+    return sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+}
+
+void r2e(ReadParticle *p) {
+    Vector3 r = {p.x, p.y, p.z};
+    Vector3 v = {p.vx, p.vy, p.vz};
+    
+    // calculate specific angular momentum
+    Vector3 l = crossProduct(r, v);
+
+
 }
