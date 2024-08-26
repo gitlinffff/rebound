@@ -103,6 +103,7 @@ int main(int argc, char* argv[]){
     // Didymos
     double mass_didy = mass_system*vol_didy/(vol_didy+vol_dimor);
     double mass_dimor = mass_system*vol_dimor/(vol_didy+vol_dimor);
+    double mu_didy = r->G * mass_didy;  // Didymos gravitational parameter
     struct reb_particle Didymos = {0};
     double r_didy_com = -vol_dimor*sep_system/(vol_didy+vol_dimor); // distance of Didymos to center of mass of the system
     double v_didy_com = sqrt(-r->G*mass_dimor/pow(sep_system,2.0)*r_didy_com);
@@ -449,12 +450,28 @@ double vectorNorm(Vector3 v) {
     return sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
 }
 
-void r2e(ReadParticle *p) {
-    Vector3 r = {p.x, p.y, p.z};
-    Vector3 v = {p.vx, p.vy, p.vz};
-    
+double r2e(ReadParticle *p, double mu) {
+    Vector3 r = {p->x, p->y, p->z};
+    Vector3 v = {p->vx, p->vy, p->vz};
+    double r_norm = vectorNorm(r);
+
     // calculate specific angular momentum
     Vector3 l = crossProduct(r, v);
+    double l_norm = vectorNorm(l);
 
+    // calculate eccentricity vector 
+    Vector3 cross_vl = crossProduct(v, l);
+    cross_vl.x /= mu;
+    cross_vl.y /= mu;
+    cross_vl.z /= mu;
 
+    Vector3 r_unit = {r.x / r_norm, r.y / r_norm, r.z / r_norm};
+    Vector3 ev = {cross_vl.x - r_unit.x, cross_vl.y - r_unit.y, cross_vl.z - r_unit.z};
+    double e = vectorNorm(ev);
+
+    // semi-major axis
+    double a = l_norm * l_norm / (mu * (1 - e*e));
+
+    double orbital_parameter[2] = {a, e};
+    return orbital_parameter;
 }
