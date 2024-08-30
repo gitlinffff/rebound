@@ -26,14 +26,58 @@
 #include <omp.h>
 #include "rebound.h"
 
+// define a ReadParticle struct for holding read-in particle data
 typedef struct {
     double ID;
     double x, y, z;
     double vx, vy, vz;
     double mass, density;
+    double a, e, i, Omega, omega, f;
 } ReadParticle;
 
-// Function declarations
+// math
+typedef struct {
+    double x;
+    double y;
+    double z;
+} Vector3;
+
+Vector3 crossProduct(Vector3 a, Vector3 b) {
+    Vector3 c;
+    c.x = a.y * b.z - a.z * b.y;
+    c.y = a.z * b.x - a.x * b.z;
+    c.z = a.x * b.y - a.y * b.x;
+    return c;
+}
+
+double vectorNorm(Vector3 v) {
+    return sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+}
+
+void rv2orb(ReadParticle *p, double mu) {
+    Vector3 r = {p->x, p->y, p->z};
+    Vector3 v = {p->vx, p->vy, p->vz};
+    double r_norm = vectorNorm(r);
+
+    // calculate specific angular momentum
+    Vector3 l = crossProduct(r, v);
+    double l_norm = vectorNorm(l);
+
+    // calculate eccentricity vector 
+    Vector3 cross_vl = crossProduct(v, l);
+    cross_vl.x /= mu;
+    cross_vl.y /= mu;
+    cross_vl.z /= mu;
+
+    Vector3 r_unit = {r.x / r_norm, r.y / r_norm, r.z / r_norm};
+    Vector3 ev = {cross_vl.x - r_unit.x, cross_vl.y - r_unit.y, cross_vl.z - r_unit.z};
+    p->e = vectorNorm(ev);
+
+    // semi-major axis
+    p->a = l_norm * l_norm / (mu * (1 - p->e * p->e));
+}
+
+// Other function declarations
 void transform(ReadParticle *p, double x_translation);
 void force_radiation(struct reb_simulation* r);
 void heartbeat(struct reb_simulation* r);
@@ -146,20 +190,30 @@ int main(int argc, char* argv[]){
     
     // Dust particles
     if (1){
+	// open dust particles file
 	FILE *dust_file = fopen("/nuke/linfel/Ejecta/data_0Pa_160s.txt", "r");
 	if (dust_file == NULL) {
 	    fprintf(stderr, "Error: Could not open file.\n");
 	    return 1;
 	}
 
+	// open a file recording particles' orbital elements
+	FILE *f_ae = fopen("a_e.csv", "w");
+	if (f_ae == NULL) {
+	    reb_simulation_error(r, "Can not open file: a_e.csv");
+	    return 1;
+	}
+	fprintf(f_ae, "ID,a_p,e_p\n");
+
 	ReadParticle rp;
 	while (fscanf(dust_file, "%lf %lf %lf %lf %lf %lf %lf %lf %lf",
 			&rp.ID, &rp.x, &rp.y, &rp.z, &rp.vx, &rp.vy, &rp.vz, &rp.mass, &rp.density) == 9) {
 
+	    // transform to Didymos-centered frame
 	    transform(&rp, r_dimor_com);
-
+	    
 	    struct reb_particle p = {0};
-	    p.m = 0.0;
+	    p.m = 0.0;  
 	    p.r = r_dust;  ///////////////modifying SRP_coe is also required?
 	    p.x = rp.x;
 	    p.y = rp.y;
@@ -178,8 +232,13 @@ int main(int argc, char* argv[]){
 	    p.hash = N_particles;
 
 	    reb_simulation_add(r, p);
+	    
+	    // calculate orbital elements from position & velocity (Didymos as orbital center)
+	    rv2orb(&rp, mu_didy);
+	    fprintf(f_ae, "%d,%f,%f\n", N_particles, rp.a, rp.e);
         }
         fclose(dust_file);
+        fclose(f_ae);
     }
 
     fprintf(stdout, "Total particle number: %i\n", N_particles);
@@ -431,47 +490,3 @@ void heartbeat(struct reb_simulation* r){
     }
 }
 
-// math
-typedef struct {
-    double x;
-    double y;
-    double z;
-} Vector3;
-
-Vector3 crossProduct(Vector3 a, Vector3 b) {
-    Vector3 c;
-    c.x = a.y * b.z - a.z * b.y;
-    c.y = a.z * b.x - a.x * b.z;
-    c.z = a.x * b.y - a.y * b.x;
-    return c;
-}
-
-double vectorNorm(Vector3 v) {
-    return sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
-}
-
-double r2e(ReadParticle *p, double mu) {
-    Vector3 r = {p->x, p->y, p->z};
-    Vector3 v = {p->vx, p->vy, p->vz};
-    double r_norm = vectorNorm(r);
-
-    // calculate specific angular momentum
-    Vector3 l = crossProduct(r, v);
-    double l_norm = vectorNorm(l);
-
-    // calculate eccentricity vector 
-    Vector3 cross_vl = crossProduct(v, l);
-    cross_vl.x /= mu;
-    cross_vl.y /= mu;
-    cross_vl.z /= mu;
-
-    Vector3 r_unit = {r.x / r_norm, r.y / r_norm, r.z / r_norm};
-    Vector3 ev = {cross_vl.x - r_unit.x, cross_vl.y - r_unit.y, cross_vl.z - r_unit.z};
-    double e = vectorNorm(ev);
-
-    // semi-major axis
-    double a = l_norm * l_norm / (mu * (1 - e*e));
-
-    double orbital_parameter[2] = {a, e};
-    return orbital_parameter;
-}
