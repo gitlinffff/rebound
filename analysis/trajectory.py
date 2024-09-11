@@ -44,50 +44,52 @@ if (0):
         Np_seq_cor_esc = Np_seq_cor_esc - index_t
 
 
-# Plotting
-print("# Plotting ejecta type ...",flush=True)
-plt.figure()
-plt.plot(np.append(np.insert(N_colDidy[:,0],0,0),time[-1]) / 24 / 3600,
-         np.append(np.insert(N_colDidy[:,1],0,0),N_colDidy[-1,1]) / Np_seq[0] * 100,
-         label='Didymos collider', linewidth=1.5)
-plt.plot(np.append(np.insert(N_colDimor[:,0],0,0),time[-1]) / 24 / 3600,
-         np.append(np.insert(N_colDimor[:,1],0,0),N_colDimor[-1,1]) / Np_seq[0] * 100,
-         label='Dimorphos collider', linewidth=1.5)
-plt.plot(np.append(np.insert(N_escape[:,0],0,0),time[-1]) / 24 / 3600,
-         np.append(np.insert(N_escape[:,1],0,0),N_escape[-1,1]) / Np_seq[0] * 100,
-         label='Escaped ejecta', linewidth=1.5)
-#plt.plot(np.insert(time_sort, 0, 0) / 24 / 3600, np.insert(N_sort, 0, 0) / Np_seq[0] * 100, label='Escaped ejecta', linewidth=1.5)
-plt.plot(time / 24 / 3600,
-         Np_seq / Np_seq[0] * 100,
-         label='Remaining ejecta', linewidth=1.5)
-plt.xlabel('Time [days]')
-plt.ylabel('Ejecta type percentage [%]')
-plt.title('Dust particle radius r = 1 mm')
-plt.legend()
-plt.grid()
-plt.savefig('ejecta_type.png',dpi=300)
-plt.close()
-print("# Ejecta type completed!\n",flush=True)
+# Plotting ejecta type
+if (0):
+    print("# Plotting ejecta type ...",flush=True)
+    plt.figure()
+    plt.plot(np.append(np.insert(N_colDidy[:,0],0,0),time[-1]) / 24 / 3600,
+             np.append(np.insert(N_colDidy[:,1],0,0),N_colDidy[-1,1]) / Np_seq[0] * 100,
+             label='Didymos collider', linewidth=1.5)
+    plt.plot(np.append(np.insert(N_colDimor[:,0],0,0),time[-1]) / 24 / 3600,
+             np.append(np.insert(N_colDimor[:,1],0,0),N_colDimor[-1,1]) / Np_seq[0] * 100,
+             label='Dimorphos collider', linewidth=1.5)
+    plt.plot(np.append(np.insert(N_escape[:,0],0,0),time[-1]) / 24 / 3600,
+             np.append(np.insert(N_escape[:,1],0,0),N_escape[-1,1]) / Np_seq[0] * 100,
+             label='Escaped ejecta', linewidth=1.5)
+    #plt.plot(np.insert(time_sort, 0, 0) / 24 / 3600, np.insert(N_sort, 0, 0) / Np_seq[0] * 100, label='Escaped ejecta', linewidth=1.5)
+    plt.plot(time / 24 / 3600,
+             Np_seq / Np_seq[0] * 100,
+             label='Remaining ejecta', linewidth=1.5)
+    plt.xlabel('Time [days]')
+    plt.ylabel('Ejecta type percentage [%]')
+    plt.title('Dust particle radius r = 1 mm')
+    plt.legend()
+    plt.grid()
+    plt.savefig('ejecta_type.png',dpi=300)
+    plt.close()
+    print("# Ejecta type completed!\n",flush=True)
 
 # Dimorphos orbit
-print("# Plotting Dimorphos orbit ...",flush=True)
-didy_pos  = particle[0]['pos']
-dimor_pos = particle[1]['pos']
-n_p = 2561
-np_pos    = particle[n_p]['pos']
+if (0):
+    print("# Plotting Dimorphos orbit ...",flush=True)
+    didy_pos  = particle[0]['pos']
+    dimor_pos = particle[1]['pos']
+    n_p = 2561
+    np_pos    = particle[n_p]['pos']
 
-plt.figure().add_subplot(projection='3d')
-plt.plot(dimor_pos[:, 0] - didy_pos[:, 0],
-         dimor_pos[:, 1] - didy_pos[:, 1],
-         dimor_pos[:, 2] - didy_pos[:, 2], 
-         label = 'Dimorphos orbit', linewidth=1.5, color='k')
-#plt.plot(np_pos[:, 0] - didy_pos[0:len(np_pos), 0],
-#         np_pos[:, 1] - didy_pos[0:len(np_pos), 1],
-#         np_pos[:, 2] - didy_pos[0:len(np_pos), 2],
-#         label = f'particle {n_p} orbit', linewidth=1.5)
-plt.savefig('dimor_orbit.png',dpi=300)
-plt.close()
-print("# Dimorphos orbit completed!\n",flush=True)
+    plt.figure().add_subplot(projection='3d')
+    plt.plot(dimor_pos[:, 0] - didy_pos[:, 0],
+             dimor_pos[:, 1] - didy_pos[:, 1],
+             dimor_pos[:, 2] - didy_pos[:, 2], 
+             label = 'Dimorphos orbit', linewidth=1.5, color='k')
+    #plt.plot(np_pos[:, 0] - didy_pos[0:len(np_pos), 0],
+    #         np_pos[:, 1] - didy_pos[0:len(np_pos), 1],
+    #         np_pos[:, 2] - didy_pos[0:len(np_pos), 2],
+    #         label = f'particle {n_p} orbit', linewidth=1.5)
+    plt.savefig('dimor_orbit.png',dpi=300)
+    plt.close()
+    print("# Dimorphos orbit completed!\n",flush=True)
 
 # Histogram for semi-major axis and eccentricity
 p_ae = np.genfromtxt("a_e.csv", delimiter=',', skip_header=1)
@@ -106,89 +108,101 @@ for i in range(len(particle)):
         esc_id.append(ID)
     else:
         print('collision category error',flush=True)
+    print(f'fate of No. {i+1} particle classified. ({100.0 * (i+1) / len(particle):.1f}%)', end="\r", flush=True)
+print("\n", flush=True)
+
 remain_id = np.array(remain_id)
 didy_col_id = np.array(didy_col_id)
 dimor_col_id = np.array(dimor_col_id)
 esc_id = np.array(esc_id)
 
 ## semimajor axis
-print("# Plotting histogram for semimajor axis ...",flush=True)
-fig,axs = plt.subplots(2,2, figsize=(8,6), sharex='col')
-a_max = np.max(p_ae[:,1])
-a_min = np.min(p_ae[:,1])
+if (1):
+    print("# Plotting histogram for semimajor axis ...",flush=True)
+    fig,axs = plt.subplots(2,2, figsize=(8,6), sharex='col')
+    a_max = np.max(p_ae[:,1])
+    a_min = np.min(p_ae[:,1])
 
-axs[0,0].hist(p_ae[didy_col_id - 4,1], bins=np.arange(a_min, a_max, 200), label='Didymos collider')
-axs[0,0].legend(fontsize='small')
+    if len(didy_col_id) > 0:
+        axs[0,0].hist(p_ae[didy_col_id - 4,1], bins=np.arange(a_min, a_max, 200), label='Didymos collider')
+        axs[0,0].legend(fontsize='small')
 
-axs[0,1].hist(p_ae[dimor_col_id - 4,1], bins=np.arange(a_min, a_max, 200), label='Dimorphos collider')
-axs[0,1].legend(fontsize='small')
+    if len(dimor_col_id) > 0:
+        axs[0,1].hist(p_ae[dimor_col_id - 4,1], bins=np.arange(a_min, a_max, 200), label='Dimorphos collider')
+        axs[0,1].legend(fontsize='small')
 
-axs[1,0].hist(p_ae[esc_id - 4,1], bins=np.arange(a_min, a_max, 200), label='Escaped ejecta')
-axs[1,0].legend(fontsize='small')
+    if len(esc_id) > 0:
+        axs[1,0].hist(p_ae[esc_id - 4,1], bins=np.arange(a_min, a_max, 200), label='Escaped ejecta')
+        axs[1,0].legend(fontsize='small')
 
-if len(remain_id) > 3: # exclude Didymos, Dimorphos and Sun
-    axs[1,1].hist(p_ae[remain_id - 4,1], bins=np.arange(a_min, a_max, 200), label='Remaining ejecta')
-    axs[1,1].legend(fontsize='small')
+    if len(remain_id) > 3: # exclude Didymos, Dimorphos and Sun //need improvement to capture Didy Dimor Sun
+        axs[1,1].hist(p_ae[remain_id - 4,1], bins=np.arange(a_min, a_max, 200), label='Remaining ejecta')
+        axs[1,1].legend(fontsize='small')
 
-fig.text(0.5, 0.04, 'Semimajor axis [m]' ,ha='center', va='center')
-fig.text(0.04, 0.5, 'Number', ha='center', va='center', rotation='vertical')
-plt.suptitle('Dust particle radius r = 1 mm')
-fig.savefig('semimajor_axis.png',dpi=300)
-plt.close()
-print("# Histogram for semimajor axis completed!\n",flush=True)
+    fig.text(0.5, 0.04, 'Semimajor axis [m]' ,ha='center', va='center')
+    fig.text(0.04, 0.5, 'Number', ha='center', va='center', rotation='vertical')
+    plt.suptitle('Dust particle radius r = 1 mm')
+    fig.savefig('semimajor_axis.png',dpi=300)
+    plt.close()
+    print("# Histogram for semimajor axis completed!\n",flush=True)
 
 ## eccentricity
-print("# Plotting histogram for eccentricity ...",flush=True)
-fig,axs = plt.subplots(2,2, figsize=(8,6), sharex='col')
-e_max = np.max(p_ae[:,2])
-e_min = np.min(p_ae[:,2])
+if (1):
+    print("# Plotting histogram for eccentricity ...",flush=True)
+    fig,axs = plt.subplots(2,2, figsize=(8,6), sharex='col')
+    e_max = np.max(p_ae[:,2])
+    e_min = np.min(p_ae[:,2])
 
-axs[0,0].hist(p_ae[didy_col_id - 4,2], bins=np.arange(e_min,e_max,0.04), label='Didymos collider')
-axs[0,0].legend(fontsize='small')
+    if len(didy_col_id) > 0:
+        axs[0,0].hist(p_ae[didy_col_id - 4,2], bins=np.arange(e_min,e_max,0.04), label='Didymos collider')
+        axs[0,0].legend(fontsize='small')
 
-axs[0,1].hist(p_ae[dimor_col_id - 4,2], bins=np.arange(e_min,e_max,0.04), label='Dimorphos collider')
-axs[0,1].legend(fontsize='small')
+    if len(dimor_col_id) > 0:
+        axs[0,1].hist(p_ae[dimor_col_id - 4,2], bins=np.arange(e_min,e_max,0.04), label='Dimorphos collider')
+        axs[0,1].legend(fontsize='small')
 
-axs[1,0].hist(p_ae[esc_id - 4,2], bins=np.arange(e_min,e_max,0.04), label='Escaped ejecta')
-axs[1,0].legend(fontsize='small')
+    if len(esc_id) > 0:
+        axs[1,0].hist(p_ae[esc_id - 4,2], bins=np.arange(e_min,e_max,0.04), label='Escaped ejecta')
+        axs[1,0].legend(fontsize='small')
 
-if len(remain_id) > 3: # exclude Didymos, Dimorphos and Sun
-    axs[1,1].hist(p_ae[remain_id - 4,2], bins=np.arange(e_min,e_max,0.04), label='Remaining ejecta')
-    axs[1,1].legend(fontsize='small')
+    if len(remain_id) > 3: # exclude Didymos, Dimorphos and Sun //need improvement to capture Didy Dimor Sun
+        axs[1,1].hist(p_ae[remain_id - 4,2], bins=np.arange(e_min,e_max,0.04), label='Remaining ejecta')
+        axs[1,1].legend(fontsize='small')
 
-fig.text(0.5, 0.04, 'Eccentricity' ,ha='center', va='center')
-fig.text(0.04, 0.5, 'Number', ha='center', va='center', rotation='vertical')
-plt.suptitle('Dust particle radius r = 1 mm')
-fig.savefig('eccentricity.png',dpi=300)
-plt.close()
-print("# Histogram for eccentricity completed!\n",flush=True)
+    fig.text(0.5, 0.04, 'Eccentricity' ,ha='center', va='center')
+    fig.text(0.04, 0.5, 'Number', ha='center', va='center', rotation='vertical')
+    plt.suptitle('Dust particle radius r = 1 mm')
+    fig.savefig('eccentricity.png',dpi=300)
+    plt.close()
+    print("# Histogram for eccentricity completed!\n",flush=True)
 
 # Scatter plot for dust fate
-print("# Plotting dust fate scatter plot ...",flush=True)
-fate_list = np.array([p['id_collide'] for p in particle[3:]])
-plt.figure()
-plt.scatter(p_ae[fate_list == 0,2], p_ae[fate_list == 0,1], s=5, label='ID = 0')
-plt.scatter(p_ae[fate_list == 1,2], p_ae[fate_list == 1,1], s=5, label='ID = 1')
-plt.scatter(p_ae[fate_list == 2,2], p_ae[fate_list == 2,1], s=5, label='ID = 2')
-plt.scatter(p_ae[fate_list == 3,2], p_ae[fate_list == 3,1], s=5, label='ID = 3')
-plt.title('Dust particle radius r = 1 mm')
-plt.xlabel('Eccentricity')
-plt.ylabel('Semimajor axis [m]')
-plt.legend()
-plt.savefig('a_e.png',dpi=300)
-plt.close()
-print("# Dust fate scatter plot completed!\n",flush=True)
+if (0):
+    print("# Plotting dust fate scatter plot ...",flush=True)
+    fate_list = np.array([p['id_collide'] for p in particle[3:]])
+    plt.figure()
+    plt.scatter(p_ae[fate_list == 0,2], p_ae[fate_list == 0,1], s=5, label='ID = 0')
+    plt.scatter(p_ae[fate_list == 1,2], p_ae[fate_list == 1,1], s=5, label='ID = 1')
+    plt.scatter(p_ae[fate_list == 2,2], p_ae[fate_list == 2,1], s=5, label='ID = 2')
+    plt.scatter(p_ae[fate_list == 3,2], p_ae[fate_list == 3,1], s=5, label='ID = 3')
+    plt.title('Dust particle radius r = 1 mm')
+    plt.xlabel('Eccentricity')
+    plt.ylabel('Semimajor axis [m]')
+    plt.legend()
+    plt.savefig('a_e.png',dpi=300)
+    plt.close()
+    print("# Dust fate scatter plot completed!\n",flush=True)
 
 # Scatter plot for time step N_t
-print("# Plotting locations of particles at a time slice ...",flush=True)
-N_t = 0
-plt.figure()
-plt.scatter(data_p[N_t][3:, 1], data_p[N_t][3:, 2], c=data_p[N_t][3:, 3], s=3, cmap='viridis')
-plt.colorbar()
-#plt.axes().set_aspect('equal')
-plt.title('Dust particle radius r = 1 mm')
-plt.grid()
-plt.savefig('timeslice_scatter.png',dpi=300)
-plt.close()
-print("# Locations of particles completed!\n",flush=True)
-
+if (0):
+    print("# Plotting locations of particles at a time slice ...",flush=True)
+    N_t = 0
+    plt.figure()
+    plt.scatter(data_p[N_t][3:, 1], data_p[N_t][3:, 2], c=data_p[N_t][3:, 3], s=3, cmap='viridis')
+    plt.colorbar()
+    #plt.axes().set_aspect('equal')
+    plt.title('Dust particle radius r = 1 mm')
+    plt.grid()
+    plt.savefig('timeslice_scatter.png',dpi=300)
+    plt.close()
+    print("# Locations of particles completed!\n",flush=True)
