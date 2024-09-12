@@ -45,7 +45,7 @@ if (0):
 
 
 # Plotting ejecta type
-if (0):
+if (1):
     print("# Plotting ejecta type ...",flush=True)
     plt.figure()
     plt.plot(np.append(np.insert(N_colDidy[:,0],0,0),time[-1]) / 24 / 3600,
@@ -71,11 +71,11 @@ if (0):
     print("# Ejecta type completed!\n",flush=True)
 
 # Dimorphos orbit
-if (0):
+if (1):
     print("# Plotting Dimorphos orbit ...",flush=True)
     didy_pos  = particle[0]['pos']
     dimor_pos = particle[1]['pos']
-    n_p = 2561
+    n_p = 10
     np_pos    = particle[n_p]['pos']
 
     plt.figure().add_subplot(projection='3d')
@@ -122,22 +122,23 @@ if (1):
     fig,axs = plt.subplots(2,2, figsize=(8,6), sharex='col')
     a_max = np.max(p_ae[:,1])
     a_min = np.min(p_ae[:,1])
-
+    print("# initialize")
     if len(didy_col_id) > 0:
         axs[0,0].hist(p_ae[didy_col_id - 4,1], bins=np.arange(a_min, a_max, 200), label='Didymos collider')
         axs[0,0].legend(fontsize='small')
-
+        print("# Didymos collider")
     if len(dimor_col_id) > 0:
         axs[0,1].hist(p_ae[dimor_col_id - 4,1], bins=np.arange(a_min, a_max, 200), label='Dimorphos collider')
         axs[0,1].legend(fontsize='small')
-
+        print("# Dimorphos collider")
     if len(esc_id) > 0:
         axs[1,0].hist(p_ae[esc_id - 4,1], bins=np.arange(a_min, a_max, 200), label='Escaped ejecta')
         axs[1,0].legend(fontsize='small')
-
+        print("# ESC")
     if len(remain_id) > 3: # exclude Didymos, Dimorphos and Sun //need improvement to capture Didy Dimor Sun
         axs[1,1].hist(p_ae[remain_id - 4,1], bins=np.arange(a_min, a_max, 200), label='Remaining ejecta')
         axs[1,1].legend(fontsize='small')
+        print("# Remain")
 
     fig.text(0.5, 0.04, 'Semimajor axis [m]' ,ha='center', va='center')
     fig.text(0.04, 0.5, 'Number', ha='center', va='center', rotation='vertical')
@@ -177,7 +178,7 @@ if (1):
     print("# Histogram for eccentricity completed!\n",flush=True)
 
 # Scatter plot for dust fate
-if (0):
+if (1):
     print("# Plotting dust fate scatter plot ...",flush=True)
     fate_list = np.array([p['id_collide'] for p in particle[3:]])
     plt.figure()
@@ -194,14 +195,20 @@ if (0):
     print("# Dust fate scatter plot completed!\n",flush=True)
 
 # Scatter plot for time step N_t
-if (0):
+if (1):
     print("# Plotting locations of particles at a time slice ...",flush=True)
     N_t = 0
     plt.figure()
-    plt.scatter(data_p[N_t][3:, 1], data_p[N_t][3:, 2], c=data_p[N_t][3:, 3], s=3, cmap='viridis')
-    plt.colorbar()
+    # plot Didymos and Dimorphos
+    plt.scatter(data_p[N_t][0, 1], data_p[N_t][0, 2], c='red', s=10)
+    plt.scatter(data_p[N_t][1, 1], data_p[N_t][1, 2], c='red', s=8)
+    # plot dust particles
+    dust_sc = plt.scatter(data_p[N_t][3:, 1], data_p[N_t][3:, 2], c=data_p[N_t][3:, 3], s=2, cmap='viridis')
+    cb = plt.colorbar(dust_sc)
+    cb.set_label(f'z [m]', fontsize=12)
+    
     #plt.axes().set_aspect('equal')
-    plt.title('Dust particle radius r = 1 mm')
+    plt.title(f't = {time[N_t]:.1f} s   Dust particle radius r = 1 mm')
     plt.grid()
     plt.savefig('timeslice_scatter.png',dpi=300)
     plt.close()
