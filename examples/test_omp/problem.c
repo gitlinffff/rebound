@@ -127,11 +127,11 @@ int main(int argc, char* argv[]){
     
     // Set the number of OpenMP threads to be the number of processors
     //int np = omp_get_num_procs();
-    omp_set_num_threads(32);
+    omp_set_num_threads(256);
     
     // Setup simulation structure and 3D visualization server
     struct reb_simulation* r = reb_simulation_create();
-    reb_simulation_start_server(r, 1234);
+    //reb_simulation_start_server(r, 1234);
 
     // Setup constants
     r->integrator          = REB_INTEGRATOR_IAS15;
@@ -187,28 +187,33 @@ int main(int argc, char* argv[]){
     reb_simulation_add(r, star);
 
     unsigned int N_particles = 3; // current number of particles (didy, dimor, sun)
+    unsigned int N_scanned = 0;   // record how many particles scanned in the input particle file
     
     // Dust particles
     if (1){
 	// open dust particles file
-	FILE *dust_file = fopen("/nuke/linfel/Ejecta/data_0Pa_160s.txt", "r");
+	char fpath[] = "/home/linfel/linfel/Ejecta/data_0Pa_160s.txt";
+	//char fpath[] = "/home/linfel/linfel/Ejecta/test_data.txt";
+	FILE *dust_file = fopen(fpath, "r");
 	if (dust_file == NULL) {
-	    fprintf(stderr, "Error: Could not open file.\n");
+	    fprintf(stderr, "Error: Could not open file %s\n", fpath);
 	    return 1;
 	}
 
 	// open a file recording particles' orbital elements
 	FILE *f_ae = fopen("a_e.csv", "w");
 	if (f_ae == NULL) {
-	    reb_simulation_error(r, "Can not open file: a_e.csv");
+	    reb_simulation_error(r, "Could not open file: a_e.csv");
 	    return 1;
 	}
 	fprintf(f_ae, "ID,a_p,e_p\n");
 
+ 	double disSQ_Didy, disSQ_Dimor;
 	ReadParticle rp;
 	while (fscanf(dust_file, "%lf %lf %lf %lf %lf %lf %lf %lf %lf",
 			&rp.ID, &rp.x, &rp.y, &rp.z, &rp.vx, &rp.vy, &rp.vz, &rp.mass, &rp.density) == 9) {
 
+	    N_scanned++;
 	    // transform to Didymos-centered frame
 	    transform(&rp, r_dimor_com);
 	    
@@ -222,15 +227,19 @@ int main(int argc, char* argv[]){
 	    p.vy = rp.vy + T21 * v_Didy_Bary_x + T22 * v_Didy_Bary_y + T23 * v_Didy_Bary_z;
 	    p.vz = rp.vz + T31 * v_Didy_Bary_x + T32 * v_Didy_Bary_y + T33 * v_Didy_Bary_z;
 
-	    // check if the particle collides with Didymos or Dimorphos
-	    if ( ( (p.x-Didymos.x)*(p.x-Didymos.x) + (p.y-Didymos.y)*(p.y-Didymos.y) + (p.z-Didymos.z)*(p.z-Didymos.z) ) < Rsq_didy )
+            disSQ_Didy  = pow(p.x-Didymos.x,2) + pow(p.y-Didymos.y,2) + pow(p.z-Didymos.z,2);
+            disSQ_Dimor = pow(p.x-Dimorphos.x,2) + pow(p.y-Dimorphos.y,2) + pow(p.z-Dimorphos.z,2);
+	    
+	    // skip particles that are farther than hill radius or collide with Didymos or Dimorphos
+	    if (disSQ_Didy < Rsq_didy)
 	        continue;
-	    if ( ( (p.x-Dimorphos.x)*(p.x-Dimorphos.x) + (p.y-Dimorphos.y)*(p.y-Dimorphos.y) + (p.z-Dimorphos.z)*(p.z-Dimorphos.z) ) < Rsq_dimor )
+	    if (disSQ_Dimor < Rsq_dimor)
 	        continue;
+	    if (disSQ_Didy > Rsq_hill)
+		continue;
 
 	    N_particles++;
 	    p.hash = N_particles;
-
 	    reb_simulation_add(r, p);
 	    
 	    // calculate orbital elements from position & velocity (Didymos as orbital center)
@@ -241,7 +250,8 @@ int main(int argc, char* argv[]){
         fclose(f_ae);
     }
 
-    fprintf(stdout, "Total particle number: %i\n", N_particles);
+    fprintf(stdout, "Total particle number scanned: %i\n", N_scanned);
+    fprintf(stdout, "Total particle number registered: %i\n", N_particles);
 //    reb_simulation_move_to_hel(r);
 
     system("rm -v particles.txt");
@@ -409,8 +419,8 @@ void heartbeat(struct reb_simulation* r){
         const struct reb_particle Didymos = particles[0];
         const struct reb_particle Dimorphos = particles[1];
         int N = r->N;
-        struct reb_vec3d vDis;
-        double dDisSQ_Didy;
+//        struct reb_vec3d vDis;
+        double dDisSQ_Didy, dDisSQ_Dimor;
         unsigned int N_remove = 0;
         unsigned int flag_remove;
         
@@ -424,27 +434,23 @@ void heartbeat(struct reb_simulation* r){
         for ( int i=0;i<N;i++ ) {
             
             const struct reb_particle p = particles[i-N_remove];       // cache
-            if ( p.m > 0. ) continue;                         // Only delete dust particles
+            if ( p.m > 0. ) continue;                                  // Only delete dust particles
+            
+            dDisSQ_Didy  = pow(p.x-Didymos.x,2) + pow(p.y-Didymos.y,2) + pow(p.z-Didymos.z,2);
+            dDisSQ_Dimor = pow(p.x-Dimorphos.x,2) + pow(p.y-Dimorphos.y,2) + pow(p.z-Dimorphos.z,2);
             
             flag_remove = 0;
-            vDis.x = p.x-Didymos.x;
-            vDis.y = p.y-Didymos.y;
-            vDis.z = p.z-Didymos.z;
-            dDisSQ_Didy = vDis.x*vDis.x + vDis.y*vDis.y + vDis.z*vDis.z;
-            
-            if ( dDisSQ_Didy < Rsq_didy )
+            if (dDisSQ_Didy < Rsq_didy)
                 flag_remove = 1; // collide with Didymos
-            else if ( ( (p.x-Dimorphos.x)*(p.x-Dimorphos.x) + (p.y-Dimorphos.y)*(p.y-Dimorphos.y) + (p.z-Dimorphos.z)*(p.z-Dimorphos.z) ) < Rsq_dimor )
+            else if (dDisSQ_Dimor < Rsq_dimor)
                 flag_remove = 2; // collide with Dimorphos
             else if ( dDisSQ_Didy > Rsq_hill )
-                flag_remove = 3; // escape particles
+                flag_remove = 3; // escaped particles
                 
-            if ( flag_remove > 0 ) {
-                
+            if (flag_remove > 0) {
                 fwrite( &(flag_remove), sizeof(int), 1, f_c );
                 fwrite( &(p.hash), sizeof(int), 1, f_c );
                 fwrite( &(r->t), sizeof(double), 1, f_c );
-                
                 reb_simulation_remove_particle( r, i-N_remove, 1 );
                 N_remove++;
             }
@@ -452,13 +458,12 @@ void heartbeat(struct reb_simulation* r){
         fclose(f_c);
         
         reb_simulation_move_to_hel(r);
-//        reb_move_to_Didymos(r);
+	//reb_move_to_Didymos(r);
     }
     
     
     //  output all particles
     if(reb_simulation_output_check(r, 3600.0)){
-        
         struct reb_particle* particles = r->particles;
         const int N = r->N;
         double di;
@@ -474,7 +479,7 @@ void heartbeat(struct reb_simulation* r){
         
         fwrite( &(N), sizeof(int), 1, fp);
         fwrite( &(r->t), sizeof(double), 1, fp);
-        fwrite( &(r_dust), sizeof(double), 1, fp);
+	fwrite( &(r_dust), sizeof(double), 1, fp);
         for ( int i=0; i<N; i++ ) {
             const struct reb_particle p = particles[i];
             di = (double)p.hash;
