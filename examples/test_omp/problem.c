@@ -127,7 +127,7 @@ int main(int argc, char* argv[]){
     
     // Set the number of OpenMP threads to be the number of processors
     //int np = omp_get_num_procs();
-    omp_set_num_threads(256);
+    omp_set_num_threads(32);
     
     // Setup simulation structure and 3D visualization server
     struct reb_simulation* r = reb_simulation_create();
@@ -192,7 +192,7 @@ int main(int argc, char* argv[]){
     // Dust particles
     if (1){
 	// open dust particles file
-	char fpath[] = "/home/linfel/linfel/Ejecta/data_0Pa_160s.txt";
+	char fpath[] = "/nuke/linfel/Ejecta/data_0Pa_160s.txt";
 	//char fpath[] = "/home/linfel/linfel/Ejecta/test_data.txt";
 	FILE *dust_file = fopen(fpath, "r");
 	if (dust_file == NULL) {
@@ -208,7 +208,14 @@ int main(int argc, char* argv[]){
 	}
 	fprintf(f_ae, "ID,a_p,e_p\n");
 
- 	double disSQ_Didy, disSQ_Dimor;
+	// open a file examine the particles that are deleted
+	FILE *f_dp = fopen("deleted_particles.csv", "w");
+	if (f_dp == NULL) {
+	    reb_simulation_error(r, "Could not open file: deleted_particles.csv");
+	    return 1;
+	}
+ 	
+	double disSQ_Didy, disSQ_Dimor;
 	ReadParticle rp;
 	while (fscanf(dust_file, "%lf %lf %lf %lf %lf %lf %lf %lf %lf",
 			&rp.ID, &rp.x, &rp.y, &rp.z, &rp.vx, &rp.vy, &rp.vz, &rp.mass, &rp.density) == 9) {
@@ -231,12 +238,15 @@ int main(int argc, char* argv[]){
             disSQ_Dimor = pow(p.x-Dimorphos.x,2) + pow(p.y-Dimorphos.y,2) + pow(p.z-Dimorphos.z,2);
 	    
 	    // skip particles that are farther than hill radius or collide with Didymos or Dimorphos
-	    if (disSQ_Didy < Rsq_didy)
-	        continue;
-	    if (disSQ_Dimor < Rsq_dimor)
-	        continue;
-	    if (disSQ_Didy > Rsq_hill)
-		continue;
+	    if (disSQ_Didy < Rsq_didy){
+	        fprintf(f_dp, "%f,%f,%f,%d\n", rp.x, rp.y, rp.z, 1);
+	        continue;}
+	    if (disSQ_Dimor < Rsq_dimor){
+	        fprintf(f_dp, "%f,%f,%f,%d\n", rp.x, rp.y, rp.z, 2);
+	        continue;}
+	    if (disSQ_Didy > Rsq_hill){
+	        fprintf(f_dp, "%f,%f,%f,%d\n", rp.x, rp.y, rp.z, 3);
+		continue;}
 
 	    N_particles++;
 	    p.hash = N_particles;
@@ -413,7 +423,8 @@ void reb_move_to_Didymos(struct reb_simulation* const r){
 void heartbeat(struct reb_simulation* r){
     
     // remove collide and escaped particles
-    if(reb_simulation_output_check(r, 60.0)){
+    if(reb_simulation_output_check(r, 60.0)){  
+	// In reality, dt is larger than 60 s. This chunk of code is executed every time steps
         
         struct reb_particle* particles = r->particles;
         const struct reb_particle Didymos = particles[0];
@@ -461,7 +472,6 @@ void heartbeat(struct reb_simulation* r){
 	//reb_move_to_Didymos(r);
     }
     
-    
     //  output all particles
     if(reb_simulation_output_check(r, 3600.0)){
         struct reb_particle* particles = r->particles;
@@ -493,5 +503,11 @@ void heartbeat(struct reb_simulation* r){
         }
         fclose(fp);
     }
+    
+    //  output orbital parameters of particles
+    //if(reb_simulation_output_check(r, 4320000.0)){
+    
+    
+    //}
 }
 
