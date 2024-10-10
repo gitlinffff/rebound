@@ -422,6 +422,31 @@ void reb_move_to_Didymos(struct reb_simulation* const r){
     }
 }
 
+void reb_simulation_move_to_DidyDimor_com(struct reb_simulation* const r){
+    const int N_real = r->N - r->N_var;
+    if (N_real>0){
+        struct reb_particle* restrict const particles = r->particles;
+        struct reb_particle Didy = r->particles[0];
+        struct reb_particle Dimor = r->particles[1];
+	// position and velocity of the center of mass of Didymos and Dimorphos
+	com_x = (Didy.m * Didy.x + Dimor.m * Dimor.x) / (Didy.m + Dimor.m);
+	com_y = (Didy.m * Didy.y + Dimor.m * Dimor.y) / (Didy.m + Dimor.m);
+	com_z = (Didy.m * Didy.z + Dimor.m * Dimor.z) / (Didy.m + Dimor.m);
+	com_vx = (Didy.m * Didy.vx + Dimor.m * Dimor.vx) / (Didy.m + Dimor.m);
+	com_vy = (Didy.m * Didy.vy + Dimor.m * Dimor.vy) / (Didy.m + Dimor.m);
+	com_vz = (Didy.m * Didy.vz + Dimor.m * Dimor.vz) / (Didy.m + Dimor.m);
+        // Note: Variational particles will not be affected.
+        for (int i=0;i<N_real;i++){
+            particles[i].x  -= com_x;
+            particles[i].y  -= com_y;
+            particles[i].z  -= com_z;
+            particles[i].vx  -= com_vx;
+            particles[i].vy  -= com_vy;
+            particles[i].vz  -= com_vz;
+        }
+    }
+}
+
 void heartbeat(struct reb_simulation* r){
     
     // remove collide and escaped particles
@@ -470,7 +495,8 @@ void heartbeat(struct reb_simulation* r){
         }
         fclose(f_c);
         
-        reb_simulation_move_to_hel(r);
+        reb_simulation_move_to_DidyDimor_com(r);
+	//reb_simulation_move_to_hel(r);
 	//reb_move_to_Didymos(r);
     }
     
