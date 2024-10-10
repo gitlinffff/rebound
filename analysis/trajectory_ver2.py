@@ -121,7 +121,7 @@ timeslices_to_analyze = [0,2600,-1]
 for t in timeslices_to_analyze:
     # calculate dust particle oribital elements
     p_ae = []
-    if Np_seq[t] <= 3:
+    if Np_seq[t] <= 3:  # only Sun, Didymos and Dimorphos remain
         raise ExceptionType("No dust particles to analyze.")
     else:
         for i in range(3,Np_seq[t]):
@@ -141,7 +141,7 @@ for t in timeslices_to_analyze:
     # Scatter plot for dust fate
     if (1):
         print("# Plotting dust fate scatter plot ...",flush=True)
-        plt.figure()
+        plt.figure(figsize=(10, 6))
         if p_ae[p_ae[:,3] == 0].size > 0:
             plt.scatter(p_ae[p_ae[:,3] == 0,2], p_ae[p_ae[:,3] == 0,1], s=5, label='Remaining')
         if p_ae[p_ae[:,3] == 1].size > 0:
@@ -154,7 +154,7 @@ for t in timeslices_to_analyze:
         plt.xlabel('Eccentricity')
         plt.ylabel('Semimajor axis [m]')
         plt.legend()
-        plt.savefig(f'a_e_t{t}.png',dpi=300)
+        plt.savefig(f'a_e_t{t}.png',dpi=300,bbox_inches='tight',pad_inches=0.1)
         plt.close()
         print("# Dust fate scatter plot completed!\n",flush=True)
 
