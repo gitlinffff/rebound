@@ -201,13 +201,6 @@ int main(int argc, char* argv[]){
 	    return 1;
 	}
 
-	// open a file recording particles' orbital elements
-	FILE *f_ae = fopen("a_e.csv", "w");
-	if (f_ae == NULL) {
-	    reb_simulation_error(r, "Could not open file: a_e.csv");
-	    return 1;
-	}
-	fprintf(f_ae, "ID,a_p,e_p\n");
 
 	// open a file examine the particles that are deleted
 	FILE *f_dp = fopen("deleted_particles.csv", "w");
@@ -258,12 +251,11 @@ int main(int argc, char* argv[]){
 	    fprintf(f_ae, "%d,%f,%f\n", N_particles, rp.a, rp.e);
         }
         fclose(dust_file);
-        fclose(f_ae);
         fclose(f_dp);
     }
 
     fprintf(stdout, "Total particle number scanned: %i\n", N_scanned);
-    fprintf(stdout, "Total particle number registered: %i\n", N_particles);
+    fprintf(stdout, "Total particle number registered: %i\n", N_particlfilenamees);
 //    reb_simulation_move_to_hel(r);
 
     system("rm -v particles.txt");
@@ -533,9 +525,29 @@ void heartbeat(struct reb_simulation* r){
     }
     
     //  output orbital parameters of particles
-    //if(reb_simulation_output_check(r, 4320000.0)){
-    
-    
-    //}
+    if(reb_simulation_output_check(r, 4320000.0)){
+        struct reb_particle* particles = r->particles;
+        const struct reb_particle Didymos = particles[0];
+        const struct reb_particle Dimorphos = particles[1];
+        const int N = r->N;
+	struct reb_orbit orbit;
+	
+	// open a file recording particles' orbital elements
+	char filename[30];
+	sprintf(filename, "a_e_%f.csv", r->t);
+	FILE *f_ae = fopen(filename, "w");
+	if (f_ae == NULL) {
+	    reb_simulation_error(r, "Could not open file: %s", filename);
+	    return 1;
+	}
+	fprintf(f_ae, "ID,a_p,e_p\n");
+	
+	for ( int i=0;i<N;i++ ) {
+	    orbit = reb_orbit_from_particle(r->G, particles[i]);
+	    fprintf(f_ae, "%d,%f,%f\n", particles[i].hash, orbit.a, orbit.e);
+	} 
+        
+	fclose(f_ae);
+    }
 }
 
