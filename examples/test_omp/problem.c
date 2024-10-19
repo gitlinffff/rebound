@@ -148,7 +148,7 @@ int main(int argc, char* argv[]){
     // Didymos
     double mass_didy = mass_system*vol_didy/(vol_didy+vol_dimor);
     double mass_dimor = mass_system*vol_dimor/(vol_didy+vol_dimor);
-    double mu_didy = r->G * mass_didy;  // Didymos gravitational parameter
+//    double mu_didy = r->G * mass_didy;  // Didymos gravitational parameter
     struct reb_particle Didymos = {0};
     double r_didy_com = -vol_dimor*sep_system/(vol_didy+vol_dimor); // distance of Didymos to center of mass of the system
     double v_didy_com = sqrt(-r->G*mass_dimor/pow(sep_system,2.0)*r_didy_com);
@@ -247,15 +247,15 @@ int main(int argc, char* argv[]){
 	    reb_simulation_add(r, p);
 	    
 	    // calculate orbital elements from position & velocity (Didymos as orbital center)
-	    rv2orb(&rp, mu_didy);
-	    fprintf(f_ae, "%d,%f,%f\n", N_particles, rp.a, rp.e);
+//	    rv2orb(&rp, mu_didy);
+//	    fprintf(f_ae, "%d,%f,%f\n", N_particles, rp.a, rp.e);
         }
         fclose(dust_file);
         fclose(f_dp);
     }
 
     fprintf(stdout, "Total particle number scanned: %i\n", N_scanned);
-    fprintf(stdout, "Total particle number registered: %i\n", N_particlfilenamees);
+    fprintf(stdout, "Total particle number registered: %i\n", N_particles);
 //    reb_simulation_move_to_hel(r);
 
     system("rm -v particles.txt");
@@ -421,12 +421,12 @@ void reb_simulation_move_to_DidyDimor_com(struct reb_simulation* const r){
         struct reb_particle Didy = r->particles[0];
         struct reb_particle Dimor = r->particles[1];
 	// position and velocity of the center of mass of Didymos and Dimorphos
-	com_x = (Didy.m * Didy.x + Dimor.m * Dimor.x) / (Didy.m + Dimor.m);
-	com_y = (Didy.m * Didy.y + Dimor.m * Dimor.y) / (Didy.m + Dimor.m);
-	com_z = (Didy.m * Didy.z + Dimor.m * Dimor.z) / (Didy.m + Dimor.m);
-	com_vx = (Didy.m * Didy.vx + Dimor.m * Dimor.vx) / (Didy.m + Dimor.m);
-	com_vy = (Didy.m * Didy.vy + Dimor.m * Dimor.vy) / (Didy.m + Dimor.m);
-	com_vz = (Didy.m * Didy.vz + Dimor.m * Dimor.vz) / (Didy.m + Dimor.m);
+	double com_x = (Didy.m * Didy.x + Dimor.m * Dimor.x) / (Didy.m + Dimor.m);
+	double com_y = (Didy.m * Didy.y + Dimor.m * Dimor.y) / (Didy.m + Dimor.m);
+	double com_z = (Didy.m * Didy.z + Dimor.m * Dimor.z) / (Didy.m + Dimor.m);
+	double com_vx = (Didy.m * Didy.vx + Dimor.m * Dimor.vx) / (Didy.m + Dimor.m);
+	double com_vy = (Didy.m * Didy.vy + Dimor.m * Dimor.vy) / (Didy.m + Dimor.m);
+	double com_vz = (Didy.m * Didy.vz + Dimor.m * Dimor.vz) / (Didy.m + Dimor.m);
         // Note: Variational particles will not be affected.
         for (int i=0;i<N_real;i++){
             particles[i].x  -= com_x;
@@ -524,7 +524,7 @@ void heartbeat(struct reb_simulation* r){
         fclose(fp);
     }
     
-    //  output orbital parameters of particles
+    //  output orbital parameters of particles relative to the com of Didymos and Dimorphos system
     if(reb_simulation_output_check(r, 4320000.0)){
         struct reb_particle* particles = r->particles;
         const struct reb_particle Didymos = particles[0];
@@ -533,17 +533,29 @@ void heartbeat(struct reb_simulation* r){
 	struct reb_orbit orbit;
 	
 	// open a file recording particles' orbital elements
-	char filename[30];
-	sprintf(filename, "a_e_%f.csv", r->t);
+	char filename[20];
+	sprintf(filename, "a_e_t%d.csv", (int)r->t);
 	FILE *f_ae = fopen(filename, "w");
 	if (f_ae == NULL) {
-	    reb_simulation_error(r, "Could not open file: %s", filename);
-	    return 1;
+	    char error_msg[50];
+	    sprintf(error_msg, "Could not open file: %s", filename);
+	    reb_simulation_error(r, error_msg);
+	    return;
 	}
 	fprintf(f_ae, "ID,a_p,e_p\n");
 	
-	for ( int i=0;i<N;i++ ) {
-	    orbit = reb_orbit_from_particle(r->G, particles[i]);
+	// create a virtual body representing the com of Didymos and Dimorphos system
+        struct reb_particle virtual_com;
+	virtual_com.m = Didymos.m + Dimorphos.m;
+	virtual_com.x = 0.;
+	virtual_com.y = 0.;
+	virtual_com.z = 0.;
+	virtual_com.vx = 0.;
+	virtual_com.vy = 0.;
+	virtual_com.vz = 0.;
+
+	for ( int i=0;i<N;i++ ) { 
+	    orbit = reb_orbit_from_particle(r->G, particles[i], virtual_com);
 	    fprintf(f_ae, "%d,%f,%f\n", particles[i].hash, orbit.a, orbit.e);
 	} 
         
