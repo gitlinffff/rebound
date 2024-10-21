@@ -112,7 +112,7 @@ const double r_dust = 0.001; // dust particle radius, m -> require to change SRP
 const double rho_dust = 3000; // dust particle density, kg/m^3
 const double Rsq_didy = 850.0/2.0 * 850.0/2.0;
 const double Rsq_dimor = 175.0/2.0 * 175.0/2.0;
-const double Rsq_long_dimor = 177.0/2.0 * 177.0/2.0;  // use its longest dimension
+const double Rsq_long_dimor = 193.0/2.0 * 193.0/2.0;  // use its longest dimension
 const double Rsq_hill = 70000.0*70000.0;  // twice Hill radius of D-D system, m
 
 // J2
@@ -235,7 +235,7 @@ int main(int argc, char* argv[]){
 	    if (disSQ_Didy < Rsq_didy){
 	        fprintf(f_dp, "%f,%f,%f,%d\n", rp.x, rp.y, rp.z, 1);
 	        continue;}
-	    if (disSQ_Dimor < Rsq_long_dimor){
+	    if (disSQ_Dimor < Rsq_long_dimor){  // use Rsq_long_dimor here to delete particles that constituate Dimorphos
 	        fprintf(f_dp, "%f,%f,%f,%d\n", rp.x, rp.y, rp.z, 2);
 	        continue;}
 	    if (disSQ_Didy > Rsq_hill){
@@ -522,7 +522,7 @@ void heartbeat(struct reb_simulation* r){
             fwrite( &(p.vz), sizeof(double), 1, fp);
         }
         fclose(fp);
-    }
+   }
     
     //  output orbital parameters of particles relative to the com of Didymos and Dimorphos system
     if(reb_simulation_output_check(r, 4320000.0)){
@@ -542,7 +542,7 @@ void heartbeat(struct reb_simulation* r){
 	    reb_simulation_error(r, error_msg);
 	    return;
 	}
-	fprintf(f_ae, "ID,a_p,e_p\n");
+	fprintf(f_ae, "ID,a_p,e_p,x,y,z,vx,vy,vz\n");
 	
 	// create a virtual body representing the com of Didymos and Dimorphos system
         struct reb_particle virtual_com;
@@ -555,8 +555,9 @@ void heartbeat(struct reb_simulation* r){
 	virtual_com.vz = 0.;
 
 	for ( int i=0;i<N;i++ ) { 
-	    orbit = reb_orbit_from_particle(r->G, particles[i], virtual_com);
-	    fprintf(f_ae, "%d,%f,%f\n", particles[i].hash, orbit.a, orbit.e);
+            const struct reb_particle p = particles[i];
+	    orbit = reb_orbit_from_particle(r->G, p, virtual_com);
+	    fprintf(f_ae, "%d,%f,%f,%f,%f,%f,%f,%f,%f\n", p.hash, orbit.a, orbit.e, p.x, p.y, p.z, p.vx, p.vy, p.vz);  //a and e may not be correct for Didy and Dimor
 	} 
         
 	fclose(f_ae);
