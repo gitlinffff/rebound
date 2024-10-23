@@ -166,7 +166,7 @@ int main(int argc, char* argv[]){
     // Dimorphos
     struct reb_particle Dimorphos = {0};
     double r_dimor_com = vol_didy*sep_system/(vol_didy+vol_dimor);
-    double v_dimor_com = sqrt(r->G*mass_didy/pow(sep_system,2.0)*r_dimor_com);
+    double v_dimor_com = -sqrt(r->G*mass_didy/pow(sep_system,2.0)*r_dimor_com);
     Dimorphos.m    = mass_dimor;
     Dimorphos.r    = 175.0/2.0;
     Dimorphos.x    = r_dimor_com;
@@ -224,9 +224,9 @@ int main(int argc, char* argv[]){
 	    p.x = rp.x;
 	    p.y = rp.y;
 	    p.z = rp.z;
-	    p.vx = rp.vx + T11 * v_Didy_Bary_x + T12 * v_Didy_Bary_y + T13 * v_Didy_Bary_z;
-	    p.vy = rp.vy + T21 * v_Didy_Bary_x + T22 * v_Didy_Bary_y + T23 * v_Didy_Bary_z;
-	    p.vz = rp.vz + T31 * v_Didy_Bary_x + T32 * v_Didy_Bary_y + T33 * v_Didy_Bary_z;
+	    p.vx = rp.vx +               T11 * v_Didy_Bary_x + T12 * v_Didy_Bary_y + T13 * v_Didy_Bary_z;
+	    p.vy = rp.vy + v_dimor_com + T21 * v_Didy_Bary_x + T22 * v_Didy_Bary_y + T23 * v_Didy_Bary_z;
+	    p.vz = rp.vz +               T31 * v_Didy_Bary_x + T32 * v_Didy_Bary_y + T33 * v_Didy_Bary_z;
 
             disSQ_Didy  = pow(p.x-Didymos.x,2) + pow(p.y-Didymos.y,2) + pow(p.z-Didymos.z,2);
             disSQ_Dimor = pow(p.x-Dimorphos.x,2) + pow(p.y-Dimorphos.y,2) + pow(p.z-Dimorphos.z,2);
