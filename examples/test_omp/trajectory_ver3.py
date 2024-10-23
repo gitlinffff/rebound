@@ -107,6 +107,8 @@ if (1):
     cb = plt.colorbar(dust_sc)
     cb.set_label(f'z [m]', fontsize=12)
     
+    plt.xlabel('x / m')
+    plt.ylabel('y / m')
     #plt.axes().set_aspect('equal')
     plt.title(f't = {time[N_t]:.1f} s   Dust particle radius r = 1 mm')
     plt.grid()
@@ -140,7 +142,7 @@ for ofile in orbit_files:
 
     # Scatter plot with eccentricity shown in color 
     if (1):
-        print("# Plotting locations of particles at a time slice ...",flush=True)
+        print("# Plotting particle locations with eccentricity ...",flush=True)
         
         # select particles with limited eccentricity and spatial range
         data1 = p_ae[p_ae[:,2]<=5.,:] # select particles with eccentricity <= 5. Don't plot others
@@ -155,6 +157,8 @@ for ofile in orbit_files:
         cb = plt.colorbar(dust_sc)
         cb.set_label(f'Eccentricity', fontsize=12)
         
+        plt.xlabel('x / m')
+        plt.ylabel('y / m')
         plt.axis('equal')
         plt.title(f't = {t} s')
         plt.grid()
