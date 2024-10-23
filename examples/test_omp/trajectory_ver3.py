@@ -47,7 +47,7 @@ if (0):
 
 
 # Plotting ejecta type
-if (0):
+if (1):
     print("# Plotting ejecta type ...",flush=True)
     plt.figure()
     plt.plot(np.append(np.insert(N_colDidy[:,0],0,0),time[-1]) / 24 / 3600,
@@ -73,7 +73,7 @@ if (0):
     print("# Ejecta type completed!\n",flush=True)
 
 # Dimorphos orbit
-if (0):
+if (1):
     print("# Plotting Dimorphos orbit ...",flush=True)
     didy_pos  = particle[0]['pos']
     dimor_pos = particle[1]['pos']
@@ -95,7 +95,7 @@ if (0):
 
 
 # Scatter plot for time step N_t
-if (0):
+if (1):
     print("# Plotting locations of particles at a time slice ...",flush=True)
     N_t = 0
     plt.figure()
@@ -117,37 +117,43 @@ if (0):
 # a & e analysis
 
 # specify timeslices to be analyzed
-orbit_files = ['a_e_t0.csv','a_e_t12961243.csv','a_e_t25920000.csv']
+orbit_files = ['a_e_t0.csv','a_e_t17280607.csv','a_e_t25920000.csv']
 
 for ofile in orbit_files:
     # processing
     t = ofile.split('t')[1].replace('.csv','')
-    p_ae = np.genfromtxt(ofile,delimiter=',',skip_header=1)
-    num_rows = np.shape(p_ae)[0]
+    ae_array = np.genfromtxt(ofile,delimiter=',',skip_header=1)
+    num_rows = np.shape(ae_array)[0]
     # add a fate column to the array of a_e data
-    p_fate_column = np.zeros(num_rows)
+    fate_column = np.zeros(num_rows)
     for i in range(num_rows):
-        p_id = int(p_ae[i,0])
+        p_id = int(ae_array[i,0])
         p_fate = particle[p_id-1]['id_collide']
-        p_fate_column[i] = p_fate
-    p_ae = np.column_stack((p_ae,p_fate_column))
+        fate_column[i] = p_fate
+    ae_array = np.column_stack((ae_array,fate_column))
+    
+    # select rows of the three main bodies and dust particles
+    p0 = ae_array[0]    # the row  of Didymos        in ae_array
+    p1 = ae_array[1]    # the row  of Dimorphos      in ae_array
+    p2 = ae_array[2]    # the row  of Sun            in ae_array
+    p_ae = ae_array[3:] # the rows of dust particles in ae_array
 
     # Scatter plot with eccentricity shown in color 
     if (1):
         print("# Plotting locations of particles at a time slice ...",flush=True)
         
+        # select particles with limited eccentricity and spatial range
+        data1 = p_ae[p_ae[:,2]<=5.,:] # select particles with eccentricity <= 5. Don't plot others
+        data2 = data1[(data1[:, 5] >= -10) & (data1[:, 5] <= 10), :] # select particles located within certain z range. Don't plot others
+        
         plt.figure()
         # plot Dimorphos (x,y)
-        plt.scatter(p_ae[0, 3], p_ae[0, 4], c='red', s=10, zorder=3)
-        plt.scatter(p_ae[1, 3], p_ae[1, 4], c='red', s=8, zorder=3)
+        #plt.scatter(p0[3], p0[4], c='red', s=10, zorder=3)
+        plt.scatter(p1[3], p1[4], c='red', s=8, zorder=3)
         # plot dust particles (x,y), color as eccentricity
-        data1 = p_ae[p_ae[:,0]>3,:]   # select particles other than Didy, Dimor, Sun by ID
-        data2 = data1[data1[:,2]<=5.,:] # select particles with eccentricity <= 5. Don't plot others
-        data3 = data2[(data2[:, 5] >= -10) & (data2[:, 5] <= 10), :] # select particles located within certain z range. Don't plot others
-        dust_sc = plt.scatter(data3[3:, 3], data3[3:, 4], c=data3[3:, 2], s=2, cmap='gist_rainbow')
+        dust_sc = plt.scatter(data1[3:, 3], data1[3:, 4], c=data1[3:, 2], s=2, cmap='gist_rainbow')
         cb = plt.colorbar(dust_sc)
         cb.set_label(f'Eccentricity', fontsize=12)
-        
         
         plt.axis('equal')
         plt.title(f't = {t} s')
@@ -159,7 +165,7 @@ for ofile in orbit_files:
     # Dust fate distribution in a and e space
     if (1):
         print("# Plotting dust fate distribution in a and e space ...",flush=True)
-        plt.figure()
+        plt.figure(figsize=(6,4))
         if p_ae[p_ae[:,-1] == 0].size > 0:
             plt.scatter(p_ae[p_ae[:,-1] == 0,2], p_ae[p_ae[:,-1] == 0,1], s=5, label='Remaining')
         if p_ae[p_ae[:,-1] == 1].size > 0:
@@ -169,13 +175,12 @@ for ofile in orbit_files:
         if p_ae[p_ae[:,-1] == 3].size > 0:
             plt.scatter(p_ae[p_ae[:,-1] == 3,2], p_ae[p_ae[:,-1] == 3,1], s=5, label='Escaped')
         #plt.title('Dust particle radius r = 1 mm')
-        plt.xlabel('Eccentricity')
-        plt.ylabel('Semimajor axis [m]')
-        plt.legend()
-        plt.savefig(f'dustfate_ae_{t}s.png',dpi=300)
+        plt.xlabel('Eccentricity',size=12)
+        plt.ylabel('Semimajor axis [m]',size=12)
+        plt.legend(fontsize=10)
+        plt.savefig(f'dustfate_ae_{t}s.png',dpi=300,bbox_inches='tight',pad_inches=0.1)
         plt.close()
         print("# Dust fate distribution in a and e space completed!\n",flush=True)
-
 
     # Histogram for semi-major axis and eccentricity
     ## semimajor axis
