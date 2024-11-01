@@ -119,7 +119,7 @@ if (1):
 # a & e analysis
 
 # specify timeslices to be analyzed
-orbit_files = ['a_e_t0.csv','a_e_t17280607.csv','a_e_t25920000.csv']
+orbit_files = ['a_e_t0.csv','a_e_t12961359.csv','a_e_t25920000.csv']
 
 for ofile in orbit_files:
     # processing
@@ -145,7 +145,7 @@ for ofile in orbit_files:
         print("# Plotting particle locations with eccentricity ...",flush=True)
         
         # select particles with limited eccentricity and spatial range
-        data1 = p_ae[p_ae[:,2]<=5.,:] # select particles with eccentricity <= 5. Don't plot others
+        data1 = p_ae[p_ae[:,2]<=10.,:] # select particles with eccentricity <= 5. Don't plot others
         data2 = data1[(data1[:, 5] >= -10) & (data1[:, 5] <= 10), :] # select particles located within certain z range. Don't plot others
         
         plt.figure()
@@ -186,77 +186,104 @@ for ofile in orbit_files:
         plt.close()
         print("# Dust fate distribution in a and e space completed!\n",flush=True)
 
-    # Histogram for semi-major axis and eccentricity
-    ## semimajor axis
+    # Histogram for semi-major axis
     if (1):
         print("# Plotting histogram for semimajor axis ...",flush=True)
+        bins = np.linspace(-100,11000,112)  # set bins for semimajor axis
+        yscale_type = 'log'
+
+        # plot all together
+        plt.figure(figsize=(6,4))
+        counts, bin_edges = np.histogram(p_ae[:,1], bins=bins)
+        plt.bar(bin_edges[:-1], counts, width=bin_edges[1]-bin_edges[0], align='edge')
+        plt.yscale(yscale_type)
+
+        plt.xlabel('Semimajor axis [m]')
+        plt.ylabel('Number')
+        plt.savefig(f'semimajor_axis_t{t}_all.png',dpi=300,bbox_inches='tight',pad_inches=0.1)
+        plt.close()
+
+        # plot based on fate
         fig,axs = plt.subplots(2,2, figsize=(8,6))
-        bins = np.linspace(-100,11000,112)
         
         if p_ae[p_ae[:,-1] == 1].size > 0:
             counts, bin_edges = np.histogram(p_ae[p_ae[:,-1] == 1,1], bins=bins)
             axs[0,0].bar(bin_edges[:-1], counts, width=bin_edges[1]-bin_edges[0], align='edge', label='Didymos collider')
-            axs[0,0].set_yscale('log')
+            axs[0,0].set_yscale(yscale_type)
             axs[0,0].legend(fontsize='small')
         
         if p_ae[p_ae[:,-1] == 2].size > 0:
             counts, bin_edges = np.histogram(p_ae[p_ae[:,-1] == 2,1], bins=bins)
             axs[0,1].bar(bin_edges[:-1], counts, width=bin_edges[1]-bin_edges[0], align='edge', label='Dimorphos collider')
-            axs[0,1].set_yscale('log')
+            axs[0,1].set_yscale(yscale_type)
             axs[0,1].legend(fontsize='small')
         
         if p_ae[p_ae[:,-1] == 3].size > 0:
             counts, bin_edges = np.histogram(p_ae[p_ae[:,-1] == 3,1], bins=bins)
             axs[1,0].bar(bin_edges[:-1], counts, width=bin_edges[1]-bin_edges[0], align='edge', label='Escaped ejecta')
-            axs[1,0].set_yscale('log')
+            axs[1,0].set_yscale(yscale_type)
             axs[1,0].legend(fontsize='small')
         
-        if p_ae[p_ae[:,-1] == 0].size > 0: # exclude Didymos, Dimorphos and Sun //need improvement to capture Didy Dimor Sun
+        if p_ae[p_ae[:,-1] == 0].size > 0:
             counts, bin_edges = np.histogram(p_ae[p_ae[:,-1] == 0,1], bins=bins)
             axs[1,1].bar(bin_edges[:-1], counts, width=bin_edges[1]-bin_edges[0], align='edge', label='Remaining ejecta')
-            axs[1,1].set_yscale('log')
+            axs[1,1].set_yscale(yscale_type)
             axs[1,1].legend(fontsize='small')
 
         fig.text(0.5, 0.04, 'Semimajor axis [m]' ,ha='center', va='center')
         fig.text(0.04, 0.5, 'Number', ha='center', va='center', rotation='vertical')
-        plt.suptitle('Dust particle radius r = 1 mm')
-        fig.savefig(f'semimajor_axis_t{t}.png',dpi=300)
-        plt.close()
+        #plt.suptitle('Dust particle radius r = 1 mm')
+        fig.savefig(f'semimajor_axis_t{t}.png',dpi=300,bbox_inches='tight',pad_inches=0.1)
+        plt.close(fig)
         print("# Histogram for semimajor axis completed!\n",flush=True)
 
-    ## eccentricity
+    # Histogram for eccentricity
     if (1):
         print("# Plotting histogram for eccentricity ...",flush=True)
-        fig,axs = plt.subplots(2,2, figsize=(8,6))
-        bins = np.linspace(-1,5,150)
+        bins = np.linspace(-1,20,150)  # set bins for eccentricity
+        yscale_type = 'log'
         
+        # plot all together
+        plt.figure(figsize=(6,4))
+        counts, bin_edges = np.histogram(p_ae[:,2], bins=bins)
+        plt.bar(bin_edges[:-1], counts, width=bin_edges[1]-bin_edges[0], align='edge')
+        plt.yscale(yscale_type)
+
+        plt.xlabel('Eccentricity')
+        plt.ylabel('Number')
+        plt.savefig(f'eccentricity_t{t}_all.png',dpi=300,bbox_inches='tight',pad_inches=0.1)
+        plt.close()
+
+        # plot based on fate
+        fig,axs = plt.subplots(2,2, figsize=(8,6))
+
         if p_ae[p_ae[:,-1] == 1].size > 0:
             counts, bin_edges = np.histogram(p_ae[p_ae[:,-1] == 1,2], bins=bins)
             axs[0,0].bar(bin_edges[:-1], counts, width=bin_edges[1]-bin_edges[0], align='edge', label='Didymos collider')
-            axs[0,0].set_yscale('log')
+            axs[0,0].set_yscale(yscale_type)
             axs[0,0].legend(fontsize='small')
         
         if p_ae[p_ae[:,-1] == 2].size > 0:
             counts, bin_edges = np.histogram(p_ae[p_ae[:,-1] == 2,2], bins=bins)
             axs[0,1].bar(bin_edges[:-1], counts, width=bin_edges[1]-bin_edges[0], align='edge', label='Dimorphos collider')
-            axs[0,1].set_yscale('log')
+            axs[0,1].set_yscale(yscale_type)
             axs[0,1].legend(fontsize='small')
         
         if p_ae[p_ae[:,-1] == 3].size > 0:
             counts, bin_edges = np.histogram(p_ae[p_ae[:,-1] == 3,2], bins=bins)
             axs[1,0].bar(bin_edges[:-1], counts, width=bin_edges[1]-bin_edges[0], align='edge', label='Escaped ejecta')
-            axs[1,0].set_yscale('log')
+            axs[1,0].set_yscale(yscale_type)
             axs[1,0].legend(fontsize='small')
         
-        if p_ae[p_ae[:,-1] == 0].size > 0: # exclude Didymos, Dimorphos and Sun //need improvement to capture Didy Dimor Sun
+        if p_ae[p_ae[:,-1] == 0].size > 0:
             counts, bin_edges = np.histogram(p_ae[p_ae[:,-1] == 0,2], bins=bins)
             axs[1,1].bar(bin_edges[:-1], counts, width=bin_edges[1]-bin_edges[0], align='edge', label='Remaining ejecta')
-            axs[1,1].set_yscale('log')
+            axs[1,1].set_yscale(yscale_type)
             axs[1,1].legend(fontsize='small')
 
         fig.text(0.5, 0.04, 'Eccentricity' ,ha='center', va='center')
         fig.text(0.04, 0.5, 'Number', ha='center', va='center', rotation='vertical')
-        plt.suptitle('Dust particle radius r = 1 mm')
-        fig.savefig(f'eccentricity_t{t}.png',dpi=300)
-        plt.close()
+        #plt.suptitle('Dust particle radius r = 1 mm')
+        fig.savefig(f'eccentricity_t{t}.png',dpi=300,bbox_inches='tight',pad_inches=0.1)
+        plt.close(fig)
         print("# Histogram for eccentricity completed!\n",flush=True)
