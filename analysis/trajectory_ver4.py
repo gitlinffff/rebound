@@ -118,6 +118,35 @@ if (1):
 
 # view dust particles from Earth
 """need to know the coordinates of Earth at specific time"""
+print("# plot the particles from the perspective of Hubble ...",flush=True)
+t_idx = 0
+p_t = data_p[t_idx]
+# get position vector of Hubble in reference frame 'Solar System Barycenter'
+r_hubble_SSB = 
+
+# 
+r_sun = p_t[2, 1:4]
+# convert to position vector of Hubble in 'Didymos System Barycenter'
+r_hubble = 
+
+v_sun = p_t[2, 4:7]
+# calculate the two basis vectors of the projection plane
+l1 = np.cross(r_hubble, (-1.)*v_sun)
+l2 = np.cross(l1, r_hubble)
+
+# create an array to record coordinates of particles projected onto the plane
+pcoor_plane = np.zeros((len(p_t),3), dtype=float)
+pcoor_plane[:, 0] = p_t[:, 0]   # copy the column of particle ID
+
+for i in range(len(p_t)):
+    pcoor_plane[i,1] = np.dot(l2, p_t[i, 1:4])
+    pcoor_plane[i,2] = np.dot(l1, p_t[i, 1:4])
+
+plt.figure()
+
+
+
+
 
 # a & e analysis
 
