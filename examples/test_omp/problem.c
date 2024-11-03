@@ -93,10 +93,12 @@ const double mass_system = 5.5e11; // kg
 const double sep_system = 1170.0; // seperation m
 const double vol_didy = 0.2295409644951028;  // km^3
 const double vol_dimor = 0.001830603200702610;
-const double r_Didy_Bary_x = 155002790587.400; /* 2022-Sep-27 23:14 (https://ssd.jpl.nasa.gov/horizons/app.html#/) */ //双小行星系统质心相对于太阳系黄道面的位置
+
+/* 2022-Sep-27 23:14 (https://ssd.jpl.nasa.gov/horizons/app.html#/) Is this correct?*/ //position of Didymos system barycenter in reference frame of Solar System Barycenter (SSB)
+const double r_Didy_Bary_x = 155002790587.400;
 const double r_Didy_Bary_y = 16396517401.5340;
 const double r_Didy_Bary_z = -8556549730.13832;
-const double v_Didy_Bary_x = -7790.84422295264;    //双小行星系统质心相对于太阳系黄道面的速度
+const double v_Didy_Bary_x = -7790.84422295264;    //velocity
 const double v_Didy_Bary_y = 33143.3809500845;
 const double v_Didy_Bary_z = 1022.84858862050;
 const double T11 = -0.182453930731996;   // check matrix T after impact  160s
@@ -113,10 +115,10 @@ const double rho_dust = 3000; // dust particle density, kg/m^3
 const double Rsq_didy = 850.0/2.0 * 850.0/2.0;
 const double Rsq_dimor = 175.0/2.0 * 175.0/2.0;
 const double Rsq_long_dimor = 193.0/2.0 * 193.0/2.0;  // use its longest dimension
-const double Rsq_hill = 70000.0*70000.0;  // twice Hill radius of D-D system, m
+const double Rsq_hill = 70500.0*70500.0;  // twice Hill radius of D-D system, m
 
 // J2
-const double J2_didy = 0.0956324486828653;  // J2 of Didymos
+const double J2_didy = 0.0956324486828653;  // J2 of Didymos  check and adjust
 const double J2_dimor = 0.113929814552540;  // J2 of Dimorphos
 
 // SRP

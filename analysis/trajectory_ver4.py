@@ -3,6 +3,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from ReadParticle import read_particle 
+from datetime import datetime, timedelta
 
 # Constants
 mass_system = 5.5e11
@@ -116,34 +117,60 @@ if (1):
     plt.close()
     print("# Locations of particles completed!\n",flush=True)
 
-# view dust particles from Earth
-"""need to know the coordinates of Earth at specific time"""
+# view dust particles from HST
 print("# plot the particles from the perspective of Hubble ...",flush=True)
-t_idx = 0
+t_idx = -1  # specify the time slice to plot
+t_elapsed = time[t_idx]
+
+start_time = datetime.strptime("2022-09-26 23:14:00.0000", "%Y-%m-%d %H:%M:%S.%f")
+new_time = start_time + timedelta(seconds=t_elapsed)
+
+# the rotation matrix converting vector from reference frame 'Solar System Barycenter' 
+# to the inertial reference frame of 'Didymos System Barycenter'
+rotate_matrix = np.array([[-0.182453930731996, 0.971278608867291, -0.152736462959145],     # need to check this 160s after impact
+                          [0.971278608867291, 0.202182756110269, 0.125459145097038],
+                          [0.152736462959145, -0.125459145097038, -0.980271174621727]])
+
 p_t = data_p[t_idx]
-# get position vector of Hubble in reference frame 'Solar System Barycenter'
-r_hubble_SSB = 
-
-# 
+# position and velocity vector of Sun
 r_sun = p_t[2, 1:4]
-# convert to position vector of Hubble in 'Didymos System Barycenter'
-r_hubble = 
-
 v_sun = p_t[2, 4:7]
+
+# get position vector of Hubble in reference frame 'Solar System Barycenter'
+r_hubble_SSB = np.array([7.591583061152859E10, -1.311663110092609E11, 3.737226365023106E7])
+# convert to position vector of Hubble in 'Didymos System Barycenter'
+r_hubble = r_sun + np.dot(rotate_matrix, r_hubble_SSB.T)
+
 # calculate the two basis vectors of the projection plane
 l1 = np.cross(r_hubble, (-1.)*v_sun)
 l2 = np.cross(l1, r_hubble)
+l1 = l1 / np.linalg.norm(l1)
+l2 = l2 / np.linalg.norm(l2)
 
 # create an array to record coordinates of particles projected onto the plane
-pcoor_plane = np.zeros((len(p_t),3), dtype=float)
-pcoor_plane[:, 0] = p_t[:, 0]   # copy the column of particle ID
+p_projected = np.zeros((len(p_t),3), dtype=float)
+p_projected[:, 0] = p_t[:, 0]   # copy the column of particle ID
 
 for i in range(len(p_t)):
-    pcoor_plane[i,1] = np.dot(l2, p_t[i, 1:4])
-    pcoor_plane[i,2] = np.dot(l1, p_t[i, 1:4])
+    p_projected[i,1] = np.dot(l2, p_t[i, 1:4])
+    p_projected[i,2] = np.dot(l1, p_t[i, 1:4])
 
-plt.figure()
+plt.figure(figsize=(8,6))
 
+# plot Didymos and Dimorphos
+plt.scatter(p_projected[0, 1], p_projected[0, 2], c='red', s=10, zorder=3)
+plt.scatter(p_projected[1, 1], p_projected[1, 2], c='red', s=8, zorder=3)
+# plot dust particles
+dust_sc = plt.scatter(p_projected[3:, 1], p_projected[3:, 2], c='k', s=2)
+
+plt.xlabel('x / m')
+plt.ylabel('y / m')
+plt.axis('equal')
+plt.title(f't = {t_elapsed:.1f} s   Simulation of ejecta observed from HST')
+plt.grid()
+plt.savefig(f'simHST_t{t_elapsed:.1f}.png',dpi=300)
+plt.close()
+print("# HST simulation completed!\n",flush=True)
 
 
 
