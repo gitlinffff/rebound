@@ -94,13 +94,16 @@ const double sep_system = 1170.0; // seperation m
 const double vol_didy = 0.2295409644951028;  // km^3
 const double vol_dimor = 0.001830603200702610;
 
-/* 2022-Sep-27 23:14 (https://ssd.jpl.nasa.gov/horizons/app.html#/) Is this correct?*/ //position of Didymos system barycenter in reference frame of Solar System Barycenter (SSB)
-const double r_Didy_Bary_x = 155002790587.400;
-const double r_Didy_Bary_y = 16396517401.5340;
-const double r_Didy_Bary_z = -8556549730.13832;
-const double v_Didy_Bary_x = -7790.84422295264;    //velocity
-const double v_Didy_Bary_y = 33143.3809500845;
-const double v_Didy_Bary_z = 1022.84858862050;
+/* 2022-Sep-26 23:17:04.1830 UTC (160s after the impact)
+ * (https://ssd.jpl.nasa.gov/horizons/app.html#/) 
+ * Coordinate Center: Sun (body center) [500@10] */
+const double r_Didy_Bary_x = 1.556570550147468E+11;
+const double r_Didy_Bary_y = 1.349660319404291E+10;
+const double r_Didy_Bary_z = -8.637998297279608E+09;
+const double v_Didy_Bary_x = -7.323648504458615E+03;    //velocity
+const double v_Didy_Bary_y = 3.319790922163674E+04;
+const double v_Didy_Bary_z = 9.918791394754933E+02;
+
 const double T11 = -0.182453930731996;   // check matrix T after impact  160s
 const double T12 = 0.971278608867291;
 const double T13 = -0.152736462959145;
