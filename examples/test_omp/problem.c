@@ -220,7 +220,7 @@ int main(int argc, char* argv[]){
 			&rp.ID, &rp.x, &rp.y, &rp.z, &rp.vx, &rp.vy, &rp.vz, &rp.mass, &rp.density) == 9) {
 
 	    N_scanned++;
-	    // transform to Didymos-centered frame
+	    // transform to Didymos system barycerter frame
 	    transform(&rp, r_dimor_com);
 	    
 	    struct reb_particle p = {0};
