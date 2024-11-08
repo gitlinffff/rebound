@@ -94,15 +94,37 @@ const double sep_system = 1170.0; // seperation m
 const double vol_didy = 0.2295409644951028;  // km^3
 const double vol_dimor = 0.001830603200702610;
 
+/* 2022-Sep-26 23:14:24.1830 UTC (moment of the impact)
+ * (https://ssd.jpl.nasa.gov/horizons/app.html#/) 
+ * Coordinate Center: Sun (body center) [500@10] */
+const double r_Didy_Bary_x = E+11;
+const double r_Didy_Bary_y = E+10;
+const double r_Didy_Bary_z = E+09;
+const double v_Didy_Bary_x = E+03;
+const double v_Didy_Bary_y = E+04;
+const double v_Didy_Bary_z = E+02;
+const double r_Dimor_x = 1.556582259038835E+11;
+const double r_Dimor_y = 1.349129068894670E+10;
+const double r_Dimor_z = -8.638156976265389E+09;
+const double v_Dimor_x = -7.322906365387563E+03;
+const double v_Dimor_y = 3.319810316934613E+04;
+const double v_Dimor_z = 9.918029911906725E+02;
+
 /* 2022-Sep-26 23:17:04.1830 UTC (160s after the impact)
  * (https://ssd.jpl.nasa.gov/horizons/app.html#/) 
  * Coordinate Center: Sun (body center) [500@10] */
 const double r_Didy_Bary_x = 1.556570550147468E+11;
 const double r_Didy_Bary_y = 1.349660319404291E+10;
 const double r_Didy_Bary_z = -8.637998297279608E+09;
-const double v_Didy_Bary_x = -7.323648504458615E+03;    //velocity
+const double v_Didy_Bary_x = -7.323648504458615E+03;
 const double v_Didy_Bary_y = 3.319790922163674E+04;
 const double v_Didy_Bary_z = 9.918791394754933E+02;
+const double r_Dimor_x = 1.556570541703198E+11;
+const double r_Dimor_y = 1.349660237935313E+10;
+const double r_Dimor_z = -8.637998283861816E+09;
+const double v_Dimor_x = -7.323764773455447E+03;
+const double v_Dimor_y = 3.319802896055199E+04;
+const double v_Dimor_z = 9.918516242373627E+02;
 
 const double T11 = -0.182453930731996;   // check matrix T after impact  160s
 const double T12 = 0.971278608867291;
