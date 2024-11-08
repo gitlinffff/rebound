@@ -19,11 +19,15 @@ from poliastro.twobody import Orbit
 #print(coe)
 
 
-# DART impact (2022-Sep-26 23:14:24.1830 UTC)
+# at the moment of DART impact (2022-Sep-26 23:14:24.1830 UTC)
+# r and v of Didymos system barycenter
+# Coordinate Center: Sun (body center) [500@10]
 #r = [1.556582267294774E+11, 1.349129152256939E+10, -8.638156994081538E+09] << u.m
 #v = [-7.322785629453647E+03, 3.319798419238497E+04, 9.918308846239352E+02] << u.m / u.s
 
 # 160s after the impact (2022-Sep-26 23:17:04.1830 UTC)
+# r and v of Didymos system barycenter
+# Coordinate Center: Sun (body center) [500@10]
 r = [1.556570550147468E+11, 1.349660319404291E+10, -8.637998297279608E+09] << u.m
 v = [-7.323648504458615E+03, 3.319790922163674E+04, 9.918791394754933E+02] << u.m / u.s
 orbit = Orbit.from_vectors(Sun, r, v)
