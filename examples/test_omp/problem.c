@@ -54,31 +54,8 @@ double vectorNorm(Vector3 v) {
     return sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
 }
 
-void rv2orb(ReadParticle *p, double mu) {
-    Vector3 r = {p->x, p->y, p->z};
-    Vector3 v = {p->vx, p->vy, p->vz};
-    double r_norm = vectorNorm(r);
-
-    // calculate specific angular momentum
-    Vector3 l = crossProduct(r, v);
-    double l_norm = vectorNorm(l);
-
-    // calculate eccentricity vector 
-    Vector3 cross_vl = crossProduct(v, l);
-    cross_vl.x /= mu;
-    cross_vl.y /= mu;
-    cross_vl.z /= mu;
-
-    Vector3 r_unit = {r.x / r_norm, r.y / r_norm, r.z / r_norm};
-    Vector3 ev = {cross_vl.x - r_unit.x, cross_vl.y - r_unit.y, cross_vl.z - r_unit.z};
-    p->e = vectorNorm(ev);
-
-    // semi-major axis
-    p->a = l_norm * l_norm / (mu * (1 - p->e * p->e));
-}
-
 // Other function declarations
-void transform(ReadParticle *p, double x_translation);
+void transform(ReadParticle *p);
 void force_radiation(struct reb_simulation* r);
 void heartbeat(struct reb_simulation* r);
 
@@ -97,44 +74,62 @@ const double vol_dimor = 0.001830603200702610;
 /* 2022-Sep-26 23:14:24.1830 UTC (moment of the impact)
  * (https://ssd.jpl.nasa.gov/horizons/app.html#/) 
  * Coordinate Center: Sun (body center) [500@10] */
-const double r_Didy_Bary_x = E+11;
-const double r_Didy_Bary_y = E+10;
-const double r_Didy_Bary_z = E+09;
-const double v_Didy_Bary_x = E+03;
-const double v_Didy_Bary_y = E+04;
-const double v_Didy_Bary_z = E+02;
-const double r_Dimor_x = 1.556582259038835E+11;
-const double r_Dimor_y = 1.349129068894670E+10;
-const double r_Dimor_z = -8.638156976265389E+09;
-const double v_Dimor_x = -7.322906365387563E+03;
-const double v_Dimor_y = 3.319810316934613E+04;
-const double v_Dimor_z = 9.918029911906725E+02;
+const Vector3 r_DSB_t0 = {1.556582267294774E+11, 1.349129152256939E+10, -8.638156994081538E+09}; // position of Didymos System Barycenter
+//const double r1_Didy_Bary_x = 1.556582267294774E+11;
+//const double r1_Didy_Bary_y = 1.349129152256939E+10;
+//const double r1_Didy_Bary_z = -8.638156994081538E+09;
+const Vector3 v_DSB_t0 = {-7.322785629453647E+03, 3.319798419238497E+04, 9.918308846239352E+02}; // velocity of Didymos System Barycenter
+//const double v1_Didy_Bary_x = -7.322785629453647E+03;
+//const double v1_Didy_Bary_y = 3.319798419238497E+04;
+//const double v1_Didy_Bary_z = 9.918308846239352E+02;
+const Vector3 r_Dimor_t0 = {1.556582259038835E+11, 1.349129068894670E+10, -8.638156976265389E+09};
+//const double r1_Dimor_x = 1.556582259038835E+11;
+//const double r1_Dimor_y = 1.349129068894670E+10;
+//const double r1_Dimor_z = -8.638156976265389E+09;
+const Vector3 v_Dimor_t0 = {-7.322906365387563E+03, 3.319810316934613E+04, 9.918029911906725E+02};
+//const double v1_Dimor_x = -7.322906365387563E+03;
+//const double v1_Dimor_y = 3.319810316934613E+04;
+//const double v1_Dimor_z = 9.918029911906725E+02;
 
 /* 2022-Sep-26 23:17:04.1830 UTC (160s after the impact)
  * (https://ssd.jpl.nasa.gov/horizons/app.html#/) 
  * Coordinate Center: Sun (body center) [500@10] */
-const double r_Didy_Bary_x = 1.556570550147468E+11;
-const double r_Didy_Bary_y = 1.349660319404291E+10;
-const double r_Didy_Bary_z = -8.637998297279608E+09;
-const double v_Didy_Bary_x = -7.323648504458615E+03;
-const double v_Didy_Bary_y = 3.319790922163674E+04;
-const double v_Didy_Bary_z = 9.918791394754933E+02;
-const double r_Dimor_x = 1.556570541703198E+11;
-const double r_Dimor_y = 1.349660237935313E+10;
-const double r_Dimor_z = -8.637998283861816E+09;
-const double v_Dimor_x = -7.323764773455447E+03;
-const double v_Dimor_y = 3.319802896055199E+04;
-const double v_Dimor_z = 9.918516242373627E+02;
+const Vector3 r_DSB_t1 = {1.556570550147468E+11, 1.349660319404291E+10, -8.637998297279608E+09}; // position of Didymos System Barycenter
+//const double r2_Didy_Bary_x = 1.556570550147468E+11;
+//const double r2_Didy_Bary_y = 1.349660319404291E+10;
+//const double r2_Didy_Bary_z = -8.637998297279608E+09;
+const Vector3 v_DSB_t1 = {-7.323648504458615E+03, 3.319790922163674E+04, 9.918791394754933E+02}; // velocity of Didymos System Barycenter
+//const double v2_Didy_Bary_x = -7.323648504458615E+03;
+//const double v2_Didy_Bary_y = 3.319790922163674E+04;
+//const double v2_Didy_Bary_z = 9.918791394754933E+02;
+const Vector3 r_Dimor_t1 = {1.556570541703198E+11, 1.349660237935313E+10, -8.637998283861816E+09};
+//const double r2_Dimor_x = 1.556570541703198E+11;
+//const double r2_Dimor_y = 1.349660237935313E+10;
+//const double r2_Dimor_z = -8.637998283861816E+09;
+const Vector3 v_Dimor_t1 = {-7.323764773455447E+03, 3.319802896055199E+04, 9.918516242373627E+02};
+//const double v2_Dimor_x = -7.323764773455447E+03;
+//const double v2_Dimor_y = 3.319802896055199E+04;
+//const double v2_Dimor_z = 9.918516242373627E+02;
+ 
+//const double T11 = -0.182453930731996;
+//const double T12 = 0.971278608867291;
+//const double T13 = -0.152736462959145;
+//const double T21 = 0.971278608867291;
+//const double T22 = 0.202182756110269;
+//const double T23 = 0.125459145097038;
+//const double T31 = 0.152736462959145;
+//const double T32 = -0.125459145097038;
+//const double T33 = -0.980271174621727;
 
-const double T11 = -0.182453930731996;   // check matrix T after impact  160s
-const double T12 = 0.971278608867291;
-const double T13 = -0.152736462959145;
-const double T21 = 0.971278608867291;
-const double T22 = 0.202182756110269;
-const double T23 = 0.125459145097038;
-const double T31 = 0.152736462959145;
-const double T32 = -0.125459145097038;
-const double T33 = -0.980271174621727;
+const double T11 = -0.703595792353257;
+const double T12 = -0.710438191316344;
+const double T13 = 0.015183454875444;
+const double T21 = 0.702824020343859;
+const double T22 = -0.692584740738747;
+const double T23 = 0.16237232930379;
+const double T31 = -0.104839674791979;
+const double T32 = 0.124915784491013;
+const double T33 = 0.986612735258626;
 const double r_dust = 0.001; // dust particle radius, m -> require to change SRP_coe as well!!!
 const double rho_dust = 3000; // dust particle density, kg/m^3
 const double Rsq_didy = 850.0/2.0 * 850.0/2.0;
@@ -181,12 +176,12 @@ int main(int argc, char* argv[]){
     double v_didy_com = sqrt(-r->G*mass_dimor/pow(sep_system,2.0)*r_didy_com);
     Didymos.m    = mass_didy;
     Didymos.r    = 850.0/2.0;
-    Didymos.x    = r_didy_com;
-    Didymos.y    = 0.0;
-    Didymos.z    = 0.0;
-    Didymos.vx   =              T11 * v_Didy_Bary_x + T12 * v_Didy_Bary_y + T13 * v_Didy_Bary_z;
-    Didymos.vy   = v_didy_com + T21 * v_Didy_Bary_x + T22 * v_Didy_Bary_y + T23 * v_Didy_Bary_z;
-    Didymos.vz   =              T31 * v_Didy_Bary_x + T32 * v_Didy_Bary_y + T33 * v_Didy_Bary_z;
+    Didymos.x    = r_didy_com + T11 * (r_DSB_t1.x - r_DSB_t0.x) + T12 * (r_DSB_t1.y - r_DSB_t0.y) + T13 * (r_DSB_t1.z - r_DSB_t0.z);
+    Didymos.y    = 0.0        + T21 * (r_DSB_t1.x - r_DSB_t0.x) + T22 * (r_DSB_t1.y - r_DSB_t0.y) + T23 * (r_DSB_t1.z - r_DSB_t0.z);
+    Didymos.z    = 0.0        + T31 * (r_DSB_t1.x - r_DSB_t0.x) + T32 * (r_DSB_t1.y - r_DSB_t0.y) + T33 * (r_DSB_t1.z - r_DSB_t0.z);
+    Didymos.vx   =              T11 * v_DSB_t1.x + T12 * v_DSB_t1.y + T13 * v_DSB_t1.z;
+    Didymos.vy   = v_didy_com + T21 * v_DSB_t1.x + T22 * v_DSB_t1.y + T23 * v_DSB_t1.z;
+    Didymos.vz   =              T31 * v_DSB_t1.x + T32 * v_DSB_t1.y + T33 * v_DSB_t1.z;
     Didymos.hash = 1;
     reb_simulation_add(r, Didymos);
     
@@ -196,21 +191,21 @@ int main(int argc, char* argv[]){
     double v_dimor_com = -sqrt(r->G*mass_didy/pow(sep_system,2.0)*r_dimor_com);
     Dimorphos.m    = mass_dimor;
     Dimorphos.r    = 175.0/2.0;
-    Dimorphos.x    = r_dimor_com;
-    Dimorphos.y    = 0.0;
-    Dimorphos.z    = 0.0;
-    Dimorphos.vx   =               T11 * v_Didy_Bary_x + T12 * v_Didy_Bary_y + T13 * v_Didy_Bary_z;
-    Dimorphos.vy   = v_dimor_com + T21 * v_Didy_Bary_x + T22 * v_Didy_Bary_y + T23 * v_Didy_Bary_z;
-    Dimorphos.vz   =               T31 * v_Didy_Bary_x + T32 * v_Didy_Bary_y + T33 * v_Didy_Bary_z;
+    Dimorphos.x    = r_dimor_com + T11 * (r_DSB_t1.x - r_DSB_t0.x) + T12 * (r_DSB_t1.y - r_DSB_t0.y) + T13 * (r_DSB_t1.z - r_DSB_t0.z);
+    Dimorphos.y    = 0.0         + T21 * (r_DSB_t1.x - r_DSB_t0.x) + T22 * (r_DSB_t1.y - r_DSB_t0.y) + T23 * (r_DSB_t1.z - r_DSB_t0.z);
+    Dimorphos.z    = 0.0         + T31 * (r_DSB_t1.x - r_DSB_t0.x) + T32 * (r_DSB_t1.y - r_DSB_t0.y) + T33 * (r_DSB_t1.z - r_DSB_t0.z);
+    Dimorphos.vx   =               T11 * v_DSB_t1.x + T12 * v_DSB_t1.y + T13 * v_DSB_t1.z;
+    Dimorphos.vy   = v_dimor_com + T21 * v_DSB_t1.x + T22 * v_DSB_t1.y + T23 * v_DSB_t1.z;
+    Dimorphos.vz   =               T31 * v_DSB_t1.x + T32 * v_DSB_t1.y + T33 * v_DSB_t1.z;
     Dimorphos.hash = 2;
     reb_simulation_add(r, Dimorphos);
     
     // Sun
     struct reb_particle star = {0};
     star.m  = mass_star;
-    star.x = - T11 * r_Didy_Bary_x - T12 * r_Didy_Bary_y - T13 * r_Didy_Bary_z;
-    star.y = - T21 * r_Didy_Bary_x - T22 * r_Didy_Bary_y - T23 * r_Didy_Bary_z;
-    star.z = - T31 * r_Didy_Bary_x - T32 * r_Didy_Bary_y - T33 * r_Didy_Bary_z;
+    star.x = - T11 * r_DSB_t0.x - T12 * r_DSB_t0.y - T13 * r_DSB_t0.z;
+    star.y = - T21 * r_DSB_t0.x - T22 * r_DSB_t0.y - T23 * r_DSB_t0.z;
+    star.z = - T31 * r_DSB_t0.x - T32 * r_DSB_t0.y - T33 * r_DSB_t0.z;
     star.hash = 3;
     reb_simulation_add(r, star);
 
@@ -242,18 +237,19 @@ int main(int argc, char* argv[]){
 			&rp.ID, &rp.x, &rp.y, &rp.z, &rp.vx, &rp.vy, &rp.vz, &rp.mass, &rp.density) == 9) {
 
 	    N_scanned++;
-	    // transform to Didymos system barycerter frame
-	    transform(&rp, r_dimor_com);
+	    // rotate the original coordinate system around its y-axis by 180 degree
+	    transform(&rp);
 	    
 	    struct reb_particle p = {0};
 	    p.m = 0.0;  
 	    p.r = r_dust;  ///////////////modifying SRP_coe is also required?
-	    p.x = rp.x;
-	    p.y = rp.y;
-	    p.z = rp.z;
-	    p.vx = rp.vx +               T11 * v_Didy_Bary_x + T12 * v_Didy_Bary_y + T13 * v_Didy_Bary_z;
-	    p.vy = rp.vy + v_dimor_com + T21 * v_Didy_Bary_x + T22 * v_Didy_Bary_y + T23 * v_Didy_Bary_z;
-	    p.vz = rp.vz +               T31 * v_Didy_Bary_x + T32 * v_Didy_Bary_y + T33 * v_Didy_Bary_z;
+	    
+	    p.x = rp.x + Dimorphos.x;
+	    p.y = rp.y + Dimorphos.y;
+	    p.z = rp.z + Dimorphos.z;
+	    p.vx = rp.vx + Dimorphos.vx;
+	    p.vy = rp.vy + Dimorphos.vy;
+	    p.vz = rp.vz + Dimorphos.vz;
 
             disSQ_Didy  = pow(p.x-Didymos.x,2) + pow(p.y-Didymos.y,2) + pow(p.z-Didymos.z,2);
             disSQ_Dimor = pow(p.x-Dimorphos.x,2) + pow(p.y-Dimorphos.y,2) + pow(p.z-Dimorphos.z,2);
@@ -272,10 +268,6 @@ int main(int argc, char* argv[]){
 	    N_particles++;
 	    p.hash = N_particles;
 	    reb_simulation_add(r, p);
-	    
-	    // calculate orbital elements from position & velocity (Didymos as orbital center)
-//	    rv2orb(&rp, mu_didy);
-//	    fprintf(f_ae, "%d,%f,%f\n", N_particles, rp.a, rp.e);
         }
         fclose(dust_file);
         fclose(f_dp);
@@ -292,7 +284,7 @@ int main(int argc, char* argv[]){
     fprintf(stdout, "\n");
 }
 
-void transform(ReadParticle *p, double x_translation) {
+void transform(ReadParticle *p) {
     // Units conversion from cgs to SI
     double new_x       = p->x / 100.0;
     double new_y       = p->y / 100.0;
@@ -308,9 +300,6 @@ void transform(ReadParticle *p, double x_translation) {
     new_z = -new_z;
     new_vx = -new_vx;
     new_vz = -new_vz;
-
-    // Translate frame along -x direction
-    new_x += x_translation;
 
     // Update particle's info
     p->x = new_x;
