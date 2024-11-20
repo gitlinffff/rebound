@@ -2,8 +2,13 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.ticker import FuncFormatter
 from ReadParticle import read_particle 
 from datetime import datetime, timedelta
+
+# Function to convert meters to kilometers
+def m_to_km(x, _):
+    return f'{x / 1000:.1f}'
 
 # Constants
 mass_system = 5.5e11
@@ -95,51 +100,69 @@ if (1):
     print("# Dimorphos orbit completed!\n",flush=True)
 
 
-# Scatter plot for time step N_t
+# Scatter plot for certain time step
 if (1):
     print("# Plotting locations of particles at a time slice ...",flush=True)
-    N_t = 0
+    t_idx = 0
+    sec = time[t_idx]
+    p_t = data_p[t_idx]
+
     plt.figure()
+
     # plot Didymos and Dimorphos
-    plt.scatter(data_p[N_t][0, 1], data_p[N_t][0, 2], c='red', s=10)
-    plt.scatter(data_p[N_t][1, 1], data_p[N_t][1, 2], c='red', s=8)
+    plt.scatter(p_t[0, 1], p_t[0, 2], c='red', s=10, zorder=3, label='Didymos')
+    plt.scatter(p_t[1, 1], p_t[1, 2], c='blue', s=8, zorder=3, label='Dimorphos')
     # plot dust particles
-    dust_sc = plt.scatter(data_p[N_t][3:, 1], data_p[N_t][3:, 2], c=data_p[N_t][3:, 3], s=2, cmap='viridis')
+    dust_sc = plt.scatter(p_t[3:, 1], p_t[3:, 2], c=p_t[3:, 3], s=2, cmap='viridis')
     cb = plt.colorbar(dust_sc)
     cb.set_label(f'z [m]', fontsize=12)
     
-    plt.xlabel('x / m')
-    plt.ylabel('y / m')
-    #plt.axes().set_aspect('equal')
-    plt.title(f't = {time[N_t]:.1f} s   Dust particle radius r = 1 mm')
+    # add the Sun direction relative to Didymos System Barycenter
+    sun_x = p_t[2, 1]
+    sun_y = p_t[2, 2]
+    sun_distance = (sun_x**2 + sun_y**2) ** 0.5
+    arrow_x = sun_x / sun_distance * (plt.xlim()[1]-plt.xlim()[0]) * 0.1
+    arrow_y = sun_y / sun_distance * (plt.xlim()[1]-plt.xlim()[0]) * 0.1
+    plt.quiver(0., 0., arrow_x, arrow_y, angles='xy', scale_units='xy', scale=1, color='orange', label='Sun Direction')
+
+    # Customize axis ticks to display in kilometers
+    ax = plt.gca()
+    ax.xaxis.set_major_formatter(FuncFormatter(m_to_km))
+    ax.yaxis.set_major_formatter(FuncFormatter(m_to_km))
+    
+    plt.xlabel('x / km')
+    plt.ylabel('y / km')
+    plt.title(f't = {sec/86400:.2f} days   Dust particle radius r = 1 mm')
+    #plt.axis('equal')
     plt.grid()
-    plt.savefig(f't{N_t}_scatter.png',dpi=300)
+    plt.legend()
+    plt.savefig(f't{t_idx}_scatter.png',dpi=300,bbox_inches='tight',pad_inches=0.1)
     plt.close()
     print("# Locations of particles completed!\n",flush=True)
 
 # view dust particles from HST
 print("# plot the particles from the perspective of Hubble ...",flush=True)
 t_idx = -1  # specify the time slice to plot
-t_elapsed = time[t_idx]
+sec = time[t_idx]
 
-start_time = datetime.strptime("2022-09-26 23:14:00.0000", "%Y-%m-%d %H:%M:%S.%f")
-new_time = start_time + timedelta(seconds=t_elapsed)
+start_time = datetime.strptime("2022-09-26 23:17:04.1830", "%Y-%m-%d %H:%M:%S.%f") # 160s after impact
+new_time = start_time + timedelta(seconds=sec)
 
-# the rotation matrix converting vector from reference frame 'Solar System Barycenter' 
+# the rotation matrix converting vector from reference frame 'Sun body center' 
 # to the inertial reference frame of 'Didymos System Barycenter'
-rotate_matrix = np.array([[-0.182453930731996, 0.971278608867291, -0.152736462959145],     # need to check this 160s after impact
-                          [0.971278608867291, 0.202182756110269, 0.125459145097038],
-                          [0.152736462959145, -0.125459145097038, -0.980271174621727]])
+rotate_matrix = np.array([[-0.703595792353257, -0.710438191316344, 0.015183454875444],
+                          [ 0.702824020343859, -0.692584740738747,  0.16237232930379 ],
+                          [-0.104839674791979,  0.124915784491013,  0.986612735258626]])
 
 p_t = data_p[t_idx]
 # position and velocity vector of Sun
 r_sun = p_t[2, 1:4]
 v_sun = p_t[2, 4:7]
 
-# get position vector of Hubble in reference frame 'Solar System Barycenter'
-r_hubble_SSB = np.array([7.591583061152859E10, -1.311663110092609E11, 3.737226365023106E7])
+# get position vector of Hubble in reference frame 'Sun body center'
+r_hubble_Sun = np.array([7.721404094618157E10, -1.309126317614033E11, 5.065374641641974E6])
 # convert to position vector of Hubble in 'Didymos System Barycenter'
-r_hubble = r_sun + np.dot(rotate_matrix, r_hubble_SSB.T)
+r_hubble = r_sun + np.dot(rotate_matrix, r_hubble_Sun.T)
 
 # calculate the two basis vectors of the projection plane
 l1 = np.cross(r_hubble, (-1.)*v_sun)
@@ -158,27 +181,39 @@ for i in range(len(p_t)):
 plt.figure(figsize=(8,6))
 
 # plot Didymos and Dimorphos
-plt.scatter(p_projected[0, 1], p_projected[0, 2], c='red', s=10, zorder=3)
-plt.scatter(p_projected[1, 1], p_projected[1, 2], c='red', s=8, zorder=3)
+plt.scatter(p_projected[0, 1], p_projected[0, 2], c='red', s=10, zorder=3, label='Didymos')
+plt.scatter(p_projected[1, 1], p_projected[1, 2], c='blue', s=8, zorder=3, label='Dimorphos')
 # plot dust particles
 dust_sc = plt.scatter(p_projected[3:, 1], p_projected[3:, 2], c='k', s=2)
 
-plt.xlabel('x / m')
-plt.ylabel('y / m')
+# add the Sun direction relative to Didymos System Barycenter
+sun_x = p_projected[2, 1]
+sun_y = p_projected[2, 2]
+sun_scale = (sun_x**2 + sun_y**2) ** 0.5
+arrow_x = sun_x / sun_scale * (plt.xlim()[1]-plt.xlim()[0]) * 0.1
+arrow_y = sun_y / sun_scale * (plt.xlim()[1]-plt.xlim()[0]) * 0.1
+plt.quiver(0., 0., arrow_x, arrow_y, angles='xy', scale_units='xy', scale=1, color='orange', label='Sun Direction')
+
+# Customize axis ticks to display in kilometers
+ax = plt.gca()
+ax.xaxis.set_major_formatter(FuncFormatter(m_to_km))
+ax.yaxis.set_major_formatter(FuncFormatter(m_to_km))
+
+plt.xlabel('x / km')
+plt.ylabel('y / km')
+plt.title(f't = {sec/86400:.2f} days   Simulation of ejecta observed from HST')
 plt.axis('equal')
-plt.title(f't = {t_elapsed:.1f} s   Simulation of ejecta observed from HST')
 plt.grid()
-plt.savefig(f'simHST_t{t_elapsed:.1f}.png',dpi=300)
+plt.legend()
+plt.savefig(f'simHST_t{sec:.1f}.png',dpi=300,bbox_inches='tight',pad_inches=0.1)
 plt.close()
 print("# HST simulation completed!\n",flush=True)
-
-
 
 
 # a & e analysis
 
 # specify timeslices to be analyzed
-orbit_files = ['a_e_t0.csv','a_e_t12961359.csv','a_e_t25920000.csv']
+orbit_files = ['a_e_t0.csv','a_e_t12961547.csv','a_e_t25920000.csv']
 
 for ofile in orbit_files:
     # processing
@@ -221,7 +256,7 @@ for ofile in orbit_files:
         plt.axis('equal')
         plt.title(f't = {t} s')
         plt.grid()
-        plt.savefig(f'location_e_t{t}.png',dpi=300)
+        plt.savefig(f'location_e_t{t}.png',dpi=300,bbox_inches='tight',pad_inches=0.1)
         plt.close()
         print("# Plotting particle locations with eccentricity completed!\n",flush=True)
     
