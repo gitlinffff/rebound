@@ -75,42 +75,20 @@ const double vol_dimor = 0.001830603200702610;
  * (https://ssd.jpl.nasa.gov/horizons/app.html#/) 
  * Coordinate Center: Sun (body center) [500@10] */
 const Vector3 r_DSB_t0 = {1.556582267294774E+11, 1.349129152256939E+10, -8.638156994081538E+09}; // position of Didymos System Barycenter
-//const double r1_Didy_Bary_x = 1.556582267294774E+11;
-//const double r1_Didy_Bary_y = 1.349129152256939E+10;
-//const double r1_Didy_Bary_z = -8.638156994081538E+09;
 const Vector3 v_DSB_t0 = {-7.322785629453647E+03, 3.319798419238497E+04, 9.918308846239352E+02}; // velocity of Didymos System Barycenter
-//const double v1_Didy_Bary_x = -7.322785629453647E+03;
-//const double v1_Didy_Bary_y = 3.319798419238497E+04;
-//const double v1_Didy_Bary_z = 9.918308846239352E+02;
 const Vector3 r_Dimor_t0 = {1.556582259038835E+11, 1.349129068894670E+10, -8.638156976265389E+09};
-//const double r1_Dimor_x = 1.556582259038835E+11;
-//const double r1_Dimor_y = 1.349129068894670E+10;
-//const double r1_Dimor_z = -8.638156976265389E+09;
 const Vector3 v_Dimor_t0 = {-7.322906365387563E+03, 3.319810316934613E+04, 9.918029911906725E+02};
-//const double v1_Dimor_x = -7.322906365387563E+03;
-//const double v1_Dimor_y = 3.319810316934613E+04;
-//const double v1_Dimor_z = 9.918029911906725E+02;
 
 /* 2022-Sep-26 23:17:04.1830 UTC (160s after the impact)
  * (https://ssd.jpl.nasa.gov/horizons/app.html#/) 
  * Coordinate Center: Sun (body center) [500@10] */
 const Vector3 r_DSB_t1 = {1.556570550147468E+11, 1.349660319404291E+10, -8.637998297279608E+09}; // position of Didymos System Barycenter
-//const double r2_Didy_Bary_x = 1.556570550147468E+11;
-//const double r2_Didy_Bary_y = 1.349660319404291E+10;
-//const double r2_Didy_Bary_z = -8.637998297279608E+09;
 const Vector3 v_DSB_t1 = {-7.323648504458615E+03, 3.319790922163674E+04, 9.918791394754933E+02}; // velocity of Didymos System Barycenter
-//const double v2_Didy_Bary_x = -7.323648504458615E+03;
-//const double v2_Didy_Bary_y = 3.319790922163674E+04;
-//const double v2_Didy_Bary_z = 9.918791394754933E+02;
 const Vector3 r_Dimor_t1 = {1.556570541703198E+11, 1.349660237935313E+10, -8.637998283861816E+09};
-//const double r2_Dimor_x = 1.556570541703198E+11;
-//const double r2_Dimor_y = 1.349660237935313E+10;
-//const double r2_Dimor_z = -8.637998283861816E+09;
 const Vector3 v_Dimor_t1 = {-7.323764773455447E+03, 3.319802896055199E+04, 9.918516242373627E+02};
-//const double v2_Dimor_x = -7.323764773455447E+03;
-//const double v2_Dimor_y = 3.319802896055199E+04;
-//const double v2_Dimor_z = 9.918516242373627E+02;
- 
+const Vector3 r_Earth_t1 = {1.496913511153486E+11, 9.256025398902288E+9, -1.483822601290885E+6};
+const Vector3 v_Earth_t1 = {-2.326301080242286E+3, 2.963125221255068E+4, -4.789234382815977E-1};
+
 //const double T11 = -0.182453930731996;
 //const double T12 = 0.971278608867291;
 //const double T13 = -0.152736462959145;
@@ -170,7 +148,6 @@ int main(int argc, char* argv[]){
     // Didymos
     double mass_didy = mass_system*vol_didy/(vol_didy+vol_dimor);
     double mass_dimor = mass_system*vol_dimor/(vol_didy+vol_dimor);
-//    double mu_didy = r->G * mass_didy;  // Didymos gravitational parameter
     struct reb_particle Didymos = {0};
     double r_didy_com = -vol_dimor*sep_system/(vol_didy+vol_dimor); // distance of Didymos to center of mass of the system
     double v_didy_com = sqrt(-r->G*mass_dimor/pow(sep_system,2.0)*r_didy_com);
@@ -209,7 +186,19 @@ int main(int argc, char* argv[]){
     star.hash = 3;
     reb_simulation_add(r, star);
 
-    unsigned int N_particles = 3; // current number of particles (didy, dimor, sun)
+    // Earth (Hubble Space Telescope)
+    struct reb_particle Earth = {0};
+    Earth.m  = 0.;
+    Earth.x = T11 * r_Earth_t1.x + T12 * r_Earth_t1.y + T13 * r_Earth_t1.z + star.x;
+    Earth.y = T21 * r_Earth_t1.x + T22 * r_Earth_t1.y + T23 * r_Earth_t1.z + star.y;
+    Earth.z = T31 * r_Earth_t1.x + T32 * r_Earth_t1.y + T33 * r_Earth_t1.z + star.z;
+    Earth.vx = T11 * v_Earth_t1.x + T12 * v_Earth_t1.y + T13 * v_Earth_t1.z;
+    Earth.vy = T21 * v_Earth_t1.x + T22 * v_Earth_t1.y + T23 * v_Earth_t1.z;
+    Earth.vz = T31 * v_Earth_t1.x + T32 * v_Earth_t1.y + T33 * v_Earth_t1.z;
+    Earth.hash = 4;
+    reb_simulation_add(r, Earth);
+
+    unsigned int N_particles = 4; // current number of particles (didy, dimor, sun, earth)
     unsigned int N_scanned = 0;   // record how many particles scanned in the input particle file
     
     // Dust particles
@@ -222,7 +211,6 @@ int main(int argc, char* argv[]){
 	    fprintf(stderr, "Error: Could not open file %s\n", fpath);
 	    return 1;
 	}
-
 
 	// open a file examine the particles that are deleted
 	FILE *f_dp = fopen("deleted_particles.csv", "w");
@@ -242,7 +230,7 @@ int main(int argc, char* argv[]){
 	    
 	    struct reb_particle p = {0};
 	    p.m = 0.0;  
-	    p.r = r_dust;  ///////////////modifying SRP_coe is also required?
+	    p.r = r_dust;
 	    
 	    p.x = rp.x + Dimorphos.x;
 	    p.y = rp.y + Dimorphos.y;
@@ -254,7 +242,7 @@ int main(int argc, char* argv[]){
             disSQ_Didy  = pow(p.x-Didymos.x,2) + pow(p.y-Didymos.y,2) + pow(p.z-Didymos.z,2);
             disSQ_Dimor = pow(p.x-Dimorphos.x,2) + pow(p.y-Dimorphos.y,2) + pow(p.z-Dimorphos.z,2);
 	    
-	    // skip particles that are farther than hill radius or collide with Didymos or Dimorphos
+	    // skip particles that are farther than hill radius and that make up Didymos or Dimorphos
 	    if (disSQ_Didy < Rsq_didy){
 	        fprintf(f_dp, "%f,%f,%f,%d\n", rp.x, rp.y, rp.z, 1);
 	        continue;}
@@ -457,7 +445,7 @@ void reb_simulation_move_to_DidyDimor_com(struct reb_simulation* const r){
 
 void heartbeat(struct reb_simulation* r){
     
-    // remove collide and escaped particles
+    // remove collided particles
     if(reb_simulation_output_check(r, 60.0)){  
 	// In reality, dt is larger than 60 s. This chunk of code is executed every time steps
         
@@ -493,7 +481,7 @@ void heartbeat(struct reb_simulation* r){
             else if ( dDisSQ_Didy > Rsq_hill )
                 flag_remove = 3; // escaped particles
                 
-            if (flag_remove > 0) {
+            if ((flag_remove == 1) || (flag_remove == 2)) {
                 fwrite( &(flag_remove), sizeof(int), 1, f_c );
                 fwrite( &(p.hash), sizeof(int), 1, f_c );
                 fwrite( &(r->t), sizeof(double), 1, f_c );
