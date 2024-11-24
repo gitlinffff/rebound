@@ -25,7 +25,29 @@ def read_particle(file_particle, file_collide):
     
     Np_seq = np.array(Np_seq)
     time = np.array(time)
+    Np_tot = Np_seq[0]
+
     
+    # Process particle data into individual particle information at initial time step
+    particle_all = [{'ID':         data_p[0][n, 0],
+                     'id_collide': 0,
+                     'time':       time[-1],
+                     'pos':        [data_p[0][n, 1:4]],  # list tracking position, convert to np.array in the end
+                     'vel':        [data_p[0][n, 4:7]]}  # list tracking velocity, convert to np.array in the end
+                    for n in range(Np_tot)]
+
+    # Populate further time steps
+    for i in range(1, len(time)):
+        for n in range(Np_seq[i]):
+            p_id = int(data_p[i][n, 0])
+            particle_all[p_id-1]['pos'].append(data_p[i][n, 1:4])
+            particle_all[p_id-1]['vel'].append(data_p[i][n, 4:7])
+        print(f'No. {i+1} of output frame has been analyzed ({100.0 * (i+1) / len(Np_seq):.1f}%)', end="\r", flush=True)
+    print("\noptimizing data structure ...", flush=True)
+    for n in range(Np_tot):  # convert list to np.array
+        particle_all[n]['pos'] = np.array(particle_all[n]['pos'])
+        particle_all[n]['vel'] = np.array(particle_all[n]['vel'])
+
     # Read collision file
     data_c = []
     with open(file_collide, 'rb') as file:
@@ -36,20 +58,8 @@ def read_particle(file_particle, file_collide):
                 break  # Break the loop if we run out of data to read
             data_c.append(list(pieces))
     
-    # Process data into individual particle information at initial time step
-    particle_all = [{'ID': data_p[0][n, 0], 'id_collide': 0, 'time': time[-1], 'pos': data_p[0][n, 1:4], 'vel': data_p[0][n, 4:7]}
-                    for n in range(Np_seq[0])]
-
-    # Populate further time steps
-    for i in range(1, len(time)):
-        for n in range(Np_seq[i]):
-            p_id = int(data_p[i][n, 0])
-            particle_all[p_id-1]['pos'] = np.vstack((particle_all[p_id-1]['pos'], data_p[i][n, 1:4]))
-            particle_all[p_id-1]['vel'] = np.vstack((particle_all[p_id-1]['vel'], data_p[i][n, 4:7]))
-        print(f'No. {i+1} of output frame has been analyzed ({100.0 * (i+1) / len(Np_seq):.1f}%)', end="\r", flush=True)
-    print("\n", flush=True)
-
     # Analyze collision data
+    print("analyzing collision data ...", flush=True)
     N_colDidy, N_colDimor, N_escape = np.empty((0,2)), np.empty((0,2)), np.empty((0,2))
     for flag_remove, p_id, time_new in data_c:
         particle_all[p_id-1]['id_collide'] = flag_remove
@@ -63,5 +73,6 @@ def read_particle(file_particle, file_collide):
         elif flag_remove == 3:
             N_escape = np.vstack(( N_escape, np.array([time_new, len(N_escape) + 1]) ))
             #N_escape.append((time_new, len(N_escape) + 1))
-   
+    
+    print("processing completed!")
     return Np_seq, time, N_colDidy, N_colDimor, N_escape, r_dust, particle_all, data_c, data_p
