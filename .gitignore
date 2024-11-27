@@ -46,3 +46,12 @@ problems/
 .vscode/
 *.pete
 examples/solar_system_tes
+
+/examples/**/*.png
+/examples/**/*.csv
+/examples/**/*.txt
+/examples/**/*.mp4
+/dart_impact/**/*.png
+/dart_impact/**/*.csv
+/dart_impact/**/*.txt
+/dart_impact/**/*.mp4
