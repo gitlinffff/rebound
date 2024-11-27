@@ -188,3 +188,62 @@ def render_frame_HSTview(frame):
     plt.savefig(frame_filename, dpi=300, bbox_inches='tight')
     plt.close(fig)
     return frame_filename
+
+def render_phase_angle_histogram(frame):
+    """
+    Renders a histogram of phase angles for a given frame and saves it as a PNG file.
+
+    Args:
+        frame (int): The frame index to render.
+
+    Returns:
+        str: The path of the saved histogram image.
+    """
+    global shared_data
+    data_p = shared_data['data_p']
+    time = shared_data['time']
+    output_dir = shared_data['output_dir']
+
+    print(f"Rendering phase angle histogram for frame {frame}...", end="\n", flush=True)
+    p_t = data_p[frame]
+    sec = time[frame]
+
+    # Get coordinates
+    r_sun = p_t[2, 1:4]  # [x, y, z] of the Sun
+    r_earth = p_t[3, 1:4]  # [x, y, z] of the Earth
+    r_dust = p_t[4:, 1:4]  # [x, y, z] of all dust particles
+
+    # Compute vectors
+    vec_sun = r_sun - r_dust  # Vectors from Sun to dust particles
+    vec_earth = r_earth - r_dust  # Vectors from Earth to dust particles
+
+    # Compute norms
+    norm_sun = np.linalg.norm(vec_sun, axis=1)  # Magnitudes of Sun vectors
+    norm_earth = np.linalg.norm(vec_earth, axis=1)  # Magnitudes of Earth vectors
+
+    # Compute dot products
+    dot_product = np.einsum('ij,ij->i', vec_sun, vec_earth)  # Dot product of Sun and Earth vectors
+
+    # Compute phase angles
+    cos_phase_angle = dot_product / (norm_sun * norm_earth)  # Cosine of phase angle
+    phase_angle = np.arccos(np.clip(cos_phase_angle, -1.0, 1.0))  # Phase angle in radians
+    phase_angle_deg = np.degrees(phase_angle)
+    
+    # Compute histogram of phase angles
+    counts, bin_edges = np.histogram(phase_angle_deg, bins=200, density=True)
+    bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
+    
+    # Create distribution of phase angles
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.plot(bin_centers, counts, color='blue', lw=2, label='')
+    #plt.bar(bin_centers, counts, width=bin_edges[1]-bin_edges[0])
+    ax.set_yscale('log')
+    ax.set_xlabel('Phase Angle (degrees)')
+    ax.set_ylabel('Number of Particles')
+    ax.set_title(f'Phase Angle Distribution (t = {sec/86400:.2f} days)')
+    
+    # Save the histogram as a PNG image
+    histogram_filename = os.path.join(output_dir, f"phase_angle_hist_{frame:04d}.png")
+    plt.savefig(histogram_filename, dpi=300, bbox_inches='tight')
+    plt.close(fig)
+    return histogram_filename
