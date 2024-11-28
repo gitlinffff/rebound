@@ -76,3 +76,32 @@ def read_particle(file_particle, file_collide):
     
     print("processing completed!")
     return Np_seq, time, N_colDidy, N_colDimor, N_escape, r_dust, particle_all, data_c, data_p
+
+def read_particle_frames(file_particle):
+    # Initialize lists to hold data
+    Np_seq = []  # time sequence of the number of particles 
+    time = []
+    data_p = []
+    r_dust = None
+
+    # Read particle file
+    with open(file_particle, 'rb') as file:
+        while True:
+            try:
+                Np_seq_new = struct.unpack('i', file.read(4))[0]  # Read int
+                time_new = struct.unpack('d', file.read(8))[0]  # Read double
+                r_dust = struct.unpack('d', file.read(8))[0]  # Read double
+                data_new = np.fromfile(file, dtype=np.double, count=7*Np_seq_new).reshape((Np_seq_new, 7))
+            except struct.error:
+                break  # Break the loop if we run out of data to read
+
+            Np_seq.append(Np_seq_new)
+            time.append(time_new)
+            data_p.append(data_new)
+    
+    Np_seq = np.array(Np_seq)
+    time = np.array(time)
+    Np_tot = Np_seq[0]
+
+    print("processing completed!")
+    return Np_seq, time, r_dust, data_p

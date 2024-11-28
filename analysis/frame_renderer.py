@@ -90,7 +90,7 @@ def render_frame_topview(frame):
     ax.set_xlabel('x / km')
     ax.set_ylabel('y / km')
     ax.grid()
-    ax.legend()
+    ax.legend(loc='upper right')
 
     # Set title
     ax.set_title(f't = {sec/86400:.2f} days   Dust radius r = 1 mm')
@@ -178,7 +178,7 @@ def render_frame_HSTview(frame):
     ax.set_xlabel('x / km')
     ax.set_ylabel('y / km')
     ax.grid()
-    ax.legend()
+    ax.legend(loc='upper right')
    
     # Set title
     ax.set_title(f't = {sec/86400:.2f} days   Dust radius r = 1 mm')
