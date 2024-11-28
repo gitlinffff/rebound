@@ -93,7 +93,7 @@ def render_frame_topview(frame):
     ax.legend()
 
     # Set title
-    ax.set_title(f't = {sec/86400:.2f} days   Dust particle radius r = 1 mm')
+    ax.set_title(f't = {sec/86400:.2f} days   Dust radius r = 1 mm')
 
     # Save the frame as a PNG image
     frame_filename = os.path.join(output_dir, f"frame_{frame:04d}.png")
@@ -181,7 +181,7 @@ def render_frame_HSTview(frame):
     ax.legend()
    
     # Set title
-    ax.set_title(f't = {sec/86400:.2f} days   Simulation of ejecta observed from HST')
+    ax.set_title(f't = {sec/86400:.2f} days   Dust radius r = 1 mm')
 
     # Save the frame as a PNG image
     frame_filename = os.path.join(output_dir, f"frame_{frame:04d}.png")
