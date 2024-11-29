@@ -16,6 +16,7 @@ def init_worker(data_p, time, axis_lim_list, output_dir):
         time (ndarray): Time data for all frames.
         axis_lim_list (list or float): List of axis limits for each frame (if rendering video) 
                                        or a single float value for one frame.
+        output_dir (str): Directory to save the output image.
     """
     global shared_data
     shared_data['data_p'] = data_p
@@ -33,7 +34,6 @@ def render_frame_topview(frame):
 
     Args:
         frame (int): The frame index to render.
-        output_dir (str): Directory to save the output image.
 
     Returns:
         str: The path of the saved frame image.
@@ -108,11 +108,6 @@ def render_frame_HSTview(frame):
 
     Args:
         frame (int): The frame index to render.
-        data_p (ndarray): Particle data for all frames.
-        time (ndarray): Time data for all frames.
-        axis_lim_list (list or float): List of axis limits for each frame (if rendering video) 
-                                       or a single float value for one frame.
-        output_dir (str): Directory to save the output image.
 
     Returns:
         str: The path of the saved frame image.
@@ -126,12 +121,6 @@ def render_frame_HSTview(frame):
     print(f"Rendering frame {frame}...", end="\r", flush=True)
     p_t = data_p[frame]
     sec = time[frame]
-
-    # Determine axis limit
-    if isinstance(axis_lim_list, list):
-        axis_lim = axis_lim_list[frame]  # Use frame-specific axis limit
-    else:
-        axis_lim = axis_lim_list  # Use single float value for a single frame
 
     # position and velocity vector of Sun
     #r_sun = p_t[2, 1:4]
@@ -173,8 +162,18 @@ def render_frame_HSTview(frame):
     # Customize axis
     ax.xaxis.set_major_formatter(FuncFormatter(m_to_km))
     ax.yaxis.set_major_formatter(FuncFormatter(m_to_km))
-    ax.set_xlim(-axis_lim, axis_lim)
-    ax.set_ylim(-axis_lim, axis_lim)
+
+    # Determine axis limit
+    if axis_lim_list is None:
+        print("No axis limits specified, using default limits.")
+    elif isinstance(axis_lim_list, list):
+        axis_lim = axis_lim_list[frame]  # Use frame-specific axis limit
+        ax.set_xlim(-axis_lim, axis_lim)
+        ax.set_ylim(-axis_lim, axis_lim)
+    else:
+        axis_lim = axis_lim_list         # Use single float value for a single frame  
+        ax.set_xlim(-axis_lim, axis_lim)
+        ax.set_ylim(-axis_lim, axis_lim)
     ax.set_xlabel('x / km')
     ax.set_ylabel('y / km')
     ax.grid()
