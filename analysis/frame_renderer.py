@@ -15,7 +15,8 @@ def init_worker(data_p, time, axis_lim_list, output_dir):
         data_p (list): A list of ndarray containing particle data for all frames.
         time (ndarray): Time data for all frames.
         axis_lim_list (list or float): List of axis limits for each frame (if rendering video) 
-                                       or a single float value for one frame.
+                                       or a single float value for one frame
+                                       or None for default axis limit.
         output_dir (str): Directory to save the output image.
     """
     global shared_data
@@ -150,7 +151,7 @@ def render_frame_HSTview(frame):
     ax.scatter(p_projected[1, 1], p_projected[1, 2], c='blue', s=8, zorder=3, label='Dimorphos')
 
     # plot dust particles
-    ax.scatter(p_projected[4:, 1], p_projected[4:, 2], c='k', s=2)
+    ax.scatter(p_projected[4:, 1], p_projected[4:, 2], c='k', s=0.5)
 
     # Plot Sun direction relative to Didymos System Barycenter
     sun_x, sun_y = p_projected[2, 1], p_projected[2, 2]
@@ -188,6 +189,104 @@ def render_frame_HSTview(frame):
     plt.close(fig)
     return frame_filename
 
+def render_single_HSTview_colorgroups(frame):
+    """
+    Renders a single frame of HST view, colorcoding particles of different groups.
+
+    Args:
+        frame (int): The frame index to render.
+
+    Returns:
+        str: The path of the saved frame image.
+    """
+    global shared_data
+    data_p = shared_data['data_p']
+    time = shared_data['time']
+    axis_lim_list = shared_data['axis_lim_list']
+    output_dir = shared_data['output_dir']
+    
+    print(f"Rendering frame {frame}...", end="\r", flush=True)
+    p_t = data_p[frame]
+    sec = time[frame]
+
+    # position and velocity vector of Sun
+    #r_sun = p_t[2, 1:4]
+    v_sun = p_t[2, 4:7]
+    
+    # position vector of Earth (as a proxy of HST)
+    r_earth = p_t[3, 1:4]
+
+    # calculate the two basis vectors of the projection plane
+    l1 = np.cross(r_earth, v_sun)
+    l2 = np.cross(l1, r_earth)
+    l1 = l1 / np.linalg.norm(l1)
+    l2 = l2 / np.linalg.norm(l2)
+
+    # create an array to record coordinates of particles projected onto the plane
+    p_projected = np.zeros((len(p_t),4), dtype=float)
+    p_projected[:, 0] = p_t[:, 0]   # copy the column of particle ID
+    p_projected[:, -1] = p_t[:, -1] # copy the column of particle group
+    for i in range(len(p_t)):
+        p_projected[i,1] = np.dot(l2, p_t[i, 1:4])
+        p_projected[i,2] = np.dot(l1, p_t[i, 1:4])
+
+    # Create a new figure for this frame
+    fig, ax = plt.subplots(figsize=(8, 8))
+    
+    # plot Didymos and Dimorphos
+    ax.scatter(p_projected[0, 1], p_projected[0, 2], c='red', s=10, zorder=3, label='Didymos')
+    ax.scatter(p_projected[1, 1], p_projected[1, 2], c='blue', s=8, zorder=3, label='Dimorphos')
+
+    # plot dust particles
+    ax.scatter(p_projected[4:, 1], p_projected[4:, 2], c='k', s=0.5)
+    # Plot dust particles in groups
+    group_colors = {1: 'red', 2: 'blue', 3: 'green', 4: 'purple'}
+    for group, color in group_colors.items():
+        group_indices = p_projected[:, -1] == group  # group info is in the last column
+        ax.scatter(
+            p_projected[group_indices, 1],
+            p_projected[group_indices, 2],
+            c=color,
+            s=0.5,
+            label=f'Group {group}'
+        )
+
+    # Plot Sun direction relative to Didymos System Barycenter
+    sun_x, sun_y = p_projected[2, 1], p_projected[2, 2]
+    sun_distance = (sun_x**2 + sun_y**2) ** 0.5
+    arrow_x = sun_x / sun_distance * (ax.get_xlim()[1] - ax.get_xlim()[0]) * 0.1
+    arrow_y = sun_y / sun_distance * (ax.get_xlim()[1] - ax.get_xlim()[0]) * 0.1
+    ax.quiver(0, 0, arrow_x, arrow_y, angles='xy', scale_units='xy', scale=1, width=0.005, color='orange', label='Sun Direction')
+
+    # Customize axis
+    ax.xaxis.set_major_formatter(FuncFormatter(m_to_km))
+    ax.yaxis.set_major_formatter(FuncFormatter(m_to_km))
+
+    # Determine axis limit
+    if axis_lim_list is None:
+        print("No axis limits specified, using default limits.")
+    elif isinstance(axis_lim_list, list):
+        axis_lim = axis_lim_list[frame]  # Use frame-specific axis limit
+        ax.set_xlim(-axis_lim, axis_lim)
+        ax.set_ylim(-axis_lim, axis_lim)
+    else:
+        axis_lim = axis_lim_list         # Use single float value for a single frame  
+        ax.set_xlim(-axis_lim, axis_lim)
+        ax.set_ylim(-axis_lim, axis_lim)
+    ax.set_xlabel('x / km')
+    ax.set_ylabel('y / km')
+    ax.grid()
+    ax.legend(loc='upper right')
+   
+    # Set title
+    ax.set_title(f't = {sec/86400:.2f} days   Dust radius r = 1 mm')
+
+    # Save the frame as a PNG image
+    frame_filename = os.path.join(output_dir, f"day_{sec/86400:.3f}.png")
+    plt.savefig(frame_filename, dpi=300, bbox_inches='tight')
+    plt.close(fig)
+    return frame_filename
+    
 def render_phase_angle_histogram(frame):
     """
     Renders a histogram of phase angles for a given frame and saves it as a PNG file.
