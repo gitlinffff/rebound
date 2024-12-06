@@ -6,7 +6,7 @@ import numpy as np
 # Define global variables for shared data
 shared_data = {}
 
-def init_worker(data_p, time, axis_lim_list, output_dir):
+def init_worker(data_p, time, axis_lim_list, output_dir, group_labels=None):
     """
     Initialize global shared data for each worker process.
     This function is called once per worker during pool initialization.
@@ -24,10 +24,14 @@ def init_worker(data_p, time, axis_lim_list, output_dir):
     shared_data['time'] = time
     shared_data['axis_lim_list'] = axis_lim_list
     shared_data['output_dir'] = output_dir
+    shared_data['group_labels'] = group_labels
 
-# Function to convert meters to kilometers for axis labels
+# Convert length unit for axis labels
 def m_to_km(x, _):
     return f'{x / 1e3:.0f}'
+
+def m_to_au(x, _):
+    return f'{x / 1.495978707e11:.1f}'
 
 def render_frame_topview(frame):
     """
@@ -204,7 +208,8 @@ def render_single_HSTview_colorgroups(frame):
     time = shared_data['time']
     axis_lim_list = shared_data['axis_lim_list']
     output_dir = shared_data['output_dir']
-    
+    group_labels = shared_data['group_labels']
+
     print(f"Rendering frame {frame}...", end="\r", flush=True)
     p_t = data_p[frame]
     sec = time[frame]
@@ -234,29 +239,25 @@ def render_single_HSTview_colorgroups(frame):
     fig, ax = plt.subplots(figsize=(8, 8))
     
     # plot Didymos and Dimorphos
-    ax.scatter(p_projected[0, 1], p_projected[0, 2], c='red', s=10, zorder=3, label='Didymos')
-    ax.scatter(p_projected[1, 1], p_projected[1, 2], c='blue', s=8, zorder=3, label='Dimorphos')
+    sc_didy = ax.scatter(p_projected[0, 1], p_projected[0, 2], c='k', s=10, zorder=3, label='Didymos')
+    sc_dimor = ax.scatter(p_projected[1, 1], p_projected[1, 2], c='blue', s=8, zorder=2, label='Dimorphos')
 
-    # plot dust particles
-    ax.scatter(p_projected[4:, 1], p_projected[4:, 2], c='k', s=0.5)
-    # Plot dust particles in groups
-    group_colors = {1: 'red', 2: 'blue', 3: 'green', 4: 'purple'}
-    for group, color in group_colors.items():
+    # plot dust particles in groups
+    for group, charac in group_labels.items():
         group_indices = p_projected[:, -1] == group  # group info is in the last column
-        ax.scatter(
-            p_projected[group_indices, 1],
-            p_projected[group_indices, 2],
-            c=color,
-            s=0.5,
-            label=f'Group {group}'
-        )
+        ax.scatter(p_projected[group_indices, 1],
+                   p_projected[group_indices, 2],
+                   c=charac[1],
+                   s=0.5,
+                   label=f'{charac[0]}',
+                   alpha=0.005)
 
     # Plot Sun direction relative to Didymos System Barycenter
     sun_x, sun_y = p_projected[2, 1], p_projected[2, 2]
     sun_distance = (sun_x**2 + sun_y**2) ** 0.5
     arrow_x = sun_x / sun_distance * (ax.get_xlim()[1] - ax.get_xlim()[0]) * 0.1
     arrow_y = sun_y / sun_distance * (ax.get_xlim()[1] - ax.get_xlim()[0]) * 0.1
-    ax.quiver(0, 0, arrow_x, arrow_y, angles='xy', scale_units='xy', scale=1, width=0.005, color='orange', label='Sun Direction')
+    qv_sun = ax.quiver(0, 0, arrow_x, arrow_y, angles='xy', scale_units='xy', scale=1, width=0.005, color='orange', label='Sun Direction')
 
     # Customize axis
     ax.xaxis.set_major_formatter(FuncFormatter(m_to_km))
@@ -276,17 +277,101 @@ def render_single_HSTview_colorgroups(frame):
     ax.set_xlabel('x / km')
     ax.set_ylabel('y / km')
     ax.grid()
-    ax.legend(loc='upper right')
+
+    # configure legend
+    handles = [           # create new handles for dusts
+        plt.Line2D([0], [0], marker='o', color=charac[1], markersize=1, linestyle='None', label=f'{charac[0]}')
+        for group, charac in group_labels.items()]
+    handles.extend([sc_didy, sc_dimor, qv_sun])
+    ax.legend(handles=handles, loc='upper right')
    
     # Set title
-    ax.set_title(f't = {sec/86400:.2f} days   Dust radius r = 1 mm')
+    ax.set_title(f't = {sec/86400:.2f} days')
 
     # Save the frame as a PNG image
     frame_filename = os.path.join(output_dir, f"day_{sec/86400:.3f}.png")
+    #plt.savefig(frame_filename, dpi=300, bbox_inches='tight')
+    plt.show()
+    plt.close(fig)
+    return frame_filename
+
+def render_location_sun_center(frame):
+    """
+    Renders a single frame of locations of Sun, Earth, Didymos system, velocity direction displayed.
+
+    Args:
+        frame (int): The frame index to render.
+
+    Returns:
+        str: The path of the saved frame image.
+    """
+    global shared_data
+    data_p = shared_data['data_p']
+    time = shared_data['time']
+    axis_lim_list = shared_data['axis_lim_list']
+    output_dir = shared_data['output_dir']
+    
+    print(f"Rendering frame {frame}...", end="\r", flush=True)
+    p_t = data_p[frame]
+    sec = time[frame]
+    assert isinstance(axis_lim_list, float), "Data type error. 'axis_lim_list' is not a float."
+    axis_lim = axis_lim_list
+
+    # position and velocity vector of Sun and Earth (as a proxy of HST)
+    r_sun = p_t[2, 1:4]
+    v_sun = p_t[2, 4:7]
+    r_earth = p_t[3, 1:4]
+    v_earth = p_t[3, 4:7]
+
+    # matrix convert vector from 'Sun Body Center' to 'Didymos System Barycenter'
+    SBC_rotate_DSB = np.array([[-0.703595792353257, -0.710438191316344, 0.015183454875444],
+                              [ 0.702824020343859, -0.692584740738747,  0.16237232930379 ],
+                              [-0.104839674791979,  0.124915784491013,  0.986612735258626]])
+    DSB_rotate_SBC = np.linalg.inv(SBC_rotate_DSB)
+    
+    # calculate position and velocity vectors of DSB and Earth in SBC reference frame
+    r_DSB_1= -np.dot(DSB_rotate_SBC, r_sun.T)
+    v_DSB_1= -np.dot(DSB_rotate_SBC, v_sun.T)
+    r_earth_1 = np.dot(DSB_rotate_SBC, r_earth.T) + r_DSB_1
+    v_earth_1 = np.dot(DSB_rotate_SBC, v_earth.T) + v_DSB_1
+    
+    # Create a new figure
+    fig, ax = plt.subplots(figsize=(8, 8))
+    
+    # plot positions of Sun, Earth, DSB
+    ax.scatter(0, 0, c='red', s=15, zorder=3, label='Sun')
+    ax.scatter(r_earth_1[0], r_earth_1[1], c='green', s=10, zorder=3, label='Earth')
+    ax.scatter(r_DSB_1[0], r_DSB_1[1], c='k', s=8, zorder=3, label='Didymos system')
+
+    # Plot DSB velocity direction
+    v_arrow = v_DSB_1 / np.linalg.norm(v_DSB_1) * axis_lim * 0.1
+    ax.quiver(r_DSB_1[0], r_DSB_1[1], v_arrow[0], v_arrow[1], angles='xy', scale_units='xy',
+              scale=1, width=0.002, color='grey')
+
+    # Plot Earth velocity direction
+    v_arrow = v_earth_1 / np.linalg.norm(v_earth_1) * axis_lim * 0.1
+    ax.quiver(r_earth_1[0], r_earth_1[1], v_arrow[0], v_arrow[1], angles='xy', scale_units='xy',
+              scale=1, width=0.002, color='grey')
+
+    # Customize axis
+    ax.xaxis.set_major_formatter(FuncFormatter(m_to_au))
+    ax.yaxis.set_major_formatter(FuncFormatter(m_to_au))
+    ax.set_xlim(-axis_lim, axis_lim)
+    ax.set_ylim(-axis_lim, axis_lim)
+    ax.set_xlabel('x / au')
+    ax.set_ylabel('y / au')
+    ax.grid()
+    ax.legend(loc='upper right')
+   
+    # Set title
+    ax.set_title(f't = {sec/86400:.2f} days')
+
+    # Save the frame as a PNG image
+    frame_filename = os.path.join(output_dir, f"frame_{frame:04d}.png")
     plt.savefig(frame_filename, dpi=300, bbox_inches='tight')
     plt.close(fig)
     return frame_filename
-    
+
 def render_phase_angle_histogram(frame):
     """
     Renders a histogram of phase angles for a given frame and saves it as a PNG file.
