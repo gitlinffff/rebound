@@ -193,7 +193,7 @@ def render_frame_HSTview(frame):
     plt.close(fig)
     return frame_filename
 
-def render_single_HSTview_colorgroups(frame):
+def render_single_HSTview_colorgroups(frame, alpha):
     """
     Renders a single frame of HST view, colorcoding particles of different groups.
 
@@ -214,16 +214,20 @@ def render_single_HSTview_colorgroups(frame):
     p_t = data_p[frame]
     sec = time[frame]
 
-    # position and velocity vector of Sun
-    #r_sun = p_t[2, 1:4]
-    v_sun = p_t[2, 4:7]
+    # matrix convert vector from 'Sun Body Center' to 'Didymos System Barycenter'
+    SBC_rotate_DSB = np.array([[-0.703595792353257, -0.710438191316344, 0.015183454875444],
+                              [ 0.702824020343859, -0.692584740738747,  0.16237232930379 ],
+                              [-0.104839674791979,  0.124915784491013,  0.986612735258626]])
+    # sky north vector and convert it to 'Didymos System Barycenter' frame
+    sky_north = np.array([0, 0, 1])
+    r_sky_north = np.dot(SBC_rotate_DSB, sky_north.T)
     
     # position vector of Earth (as a proxy of HST)
     r_earth = p_t[3, 1:4]
 
     # calculate the two basis vectors of the projection plane
-    l1 = np.cross(r_earth, v_sun)
-    l2 = np.cross(l1, r_earth)
+    l1 = np.cross(r_sky_north, r_earth)
+    l2 = np.cross(r_earth, l1)
     l1 = l1 / np.linalg.norm(l1)
     l2 = l2 / np.linalg.norm(l2)
 
@@ -232,8 +236,8 @@ def render_single_HSTview_colorgroups(frame):
     p_projected[:, 0] = p_t[:, 0]   # copy the column of particle ID
     p_projected[:, -1] = p_t[:, -1] # copy the column of particle group
     for i in range(len(p_t)):
-        p_projected[i,1] = np.dot(l2, p_t[i, 1:4])
-        p_projected[i,2] = np.dot(l1, p_t[i, 1:4])
+        p_projected[i,1] = np.dot(l1, p_t[i, 1:4])
+        p_projected[i,2] = np.dot(l2, p_t[i, 1:4])
 
     # Create a new figure for this frame
     fig, ax = plt.subplots(figsize=(8, 8))
@@ -250,7 +254,7 @@ def render_single_HSTview_colorgroups(frame):
                    c=charac[1],
                    s=0.5,
                    label=f'{charac[0]}',
-                   alpha=0.005)
+                   alpha=alpha)
 
     # Plot Sun direction relative to Didymos System Barycenter
     sun_x, sun_y = p_projected[2, 1], p_projected[2, 2]
@@ -283,7 +287,7 @@ def render_single_HSTview_colorgroups(frame):
         plt.Line2D([0], [0], marker='o', color=charac[1], markersize=1, linestyle='None', label=f'{charac[0]}')
         for group, charac in group_labels.items()]
     handles.extend([sc_didy, sc_dimor, qv_sun])
-    ax.legend(handles=handles, loc='upper right')
+    ax.legend(handles=handles, loc='upper left')
    
     # Set title
     ax.set_title(f't = {sec/86400:.2f} days')
