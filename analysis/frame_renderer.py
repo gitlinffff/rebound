@@ -240,7 +240,8 @@ def render_single_HSTview_colorgroups(frame, alpha):
         p_projected[i,2] = np.dot(l2, p_t[i, 1:4])
 
     # Create a new figure for this frame
-    fig, ax = plt.subplots(figsize=(8, 8))
+    fig, ax = plt.subplots(figsize=(8,4))
+    font = 15
     
     # plot Didymos and Dimorphos
     sc_didy = ax.scatter(p_projected[0, 1], p_projected[0, 2], c='k', s=10, zorder=3, label='Didymos')
@@ -271,30 +272,31 @@ def render_single_HSTview_colorgroups(frame, alpha):
     if axis_lim_list is None:
         print("No axis limits specified, using default limits.")
     elif isinstance(axis_lim_list, list):
-        axis_lim = axis_lim_list[frame]  # Use frame-specific axis limit
-        ax.set_xlim(-axis_lim, axis_lim)
-        ax.set_ylim(-axis_lim, axis_lim)
-    else:
+        if len(axis_lim_list)==4:         # set upper, bottom, left, right axis limits
+            ax.axis('equal')
+            ax.set_xlim(axis_lim_list[0], axis_lim_list[1])
+            ax.set_ylim(axis_lim_list[2], axis_lim_list[3])
+    elif isinstance(axis_lim_list, float):
         axis_lim = axis_lim_list         # Use single float value for a single frame  
         ax.set_xlim(-axis_lim, axis_lim)
         ax.set_ylim(-axis_lim, axis_lim)
-    ax.set_xlabel('x / km')
-    ax.set_ylabel('y / km')
+    ax.set_xlabel('x / km',fontsize=font)
+    ax.set_ylabel('y / km',fontsize=font)
     ax.grid()
 
     # configure legend
     handles = [           # create new handles for dusts
-        plt.Line2D([0], [0], marker='o', color=charac[1], markersize=1, linestyle='None', label=f'{charac[0]}')
+        plt.Line2D([0], [0], marker='o', color=charac[1], markersize=2, linestyle='None', label=f'{charac[0]}')
         for group, charac in group_labels.items()]
     handles.extend([sc_didy, sc_dimor, qv_sun])
-    ax.legend(handles=handles, loc='upper left')
+    ax.legend(handles=handles, loc='best', fontsize=font-3, ncol=4)
    
     # Set title
-    ax.set_title(f't = {sec/86400:.2f} days')
+    ax.set_title(f't = {sec/86400:.2f} days', size=font)
 
     # Save the frame as a PNG image
     frame_filename = os.path.join(output_dir, f"day_{sec/86400:.3f}.png")
-    #plt.savefig(frame_filename, dpi=300, bbox_inches='tight')
+    plt.savefig(frame_filename, dpi=300, bbox_inches='tight')
     plt.show()
     plt.close(fig)
     return frame_filename
