@@ -1,0 +1,47 @@
+#PBS -S /bin/bash
+#PBS -N {{JOBID}}
+# This example uses the Broadwell nodes
+# Each core has ~ 3.2 GB momery
+# This request asks for 28 MPI processes on Ivy Bridge node
+# Each Ivy Bridge node has 20 cores
+# Allocate 1 node with 16 cores and 12 nodes with 20 cores
+# Total cores = 1*16 + 12*20 = 256
+
+#PBS -l select=1:ncpus=28:model=bro
+#PBS -l walltime=8:00:00
+#PBS -j oe
+#PBS -m e
+#PBS -q normal
+
+# Load a compiler you use to build your executable, for example, comp-intel/2015.0.090.
+module purge
+module restore gcc
+
+# By default, PBS executes your job from your home directory.
+# However, you can use the environment variable
+# PBS_O_WORKDIR to change to the directory where
+# you submitted your job.
+
+cd $PBS_O_WORKDIR
+
+# use of dplace to pin processes to processors may improve performance
+# Here you request to pin processes to processors 4-11 of each Sandy Bridge node.
+# For other processor types, you may have to pin to different processors.
+
+# The resource request of select=32 and mpiprocs=8 implies
+# that you want to have 256 MPI processes in total.
+# If this is correct, you can omit the -np 256 for mpiexec
+# that you might have used before.
+
+./rebound {{RDUST}} > log.{{JOBID}}
+#mpiexec -np 64 ./jupiter_h2o.release -r jupiter2d-a1.rst > log.a1b
+#mpiexec -np 64 ./jupiter_h2o.release -r jupiter2d.00005.rst >> log.a1b
+#mpiexec -np 64 ./jupiter_h2o.release -r jupiter2d-a1b.rst > log.a1c
+#mpiexec -np 64 ./jupiter_h2o.release -r jupiter2d-a1c.rst > log.a1d
+
+# It is a good practice to write stderr and stdout to a file (ex: output)
+# Otherwise, they will be written to the PBS stderr and stdout in /PBS/spool,
+# which has limited amount  of space. When /PBS/spool is filled up, any job
+# that tries to write to /PBS/spool will die.
+
+# -end of script-
