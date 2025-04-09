@@ -21,6 +21,7 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <math.h>
 #include <omp.h>
@@ -60,7 +61,8 @@ void force_radiation(struct reb_simulation* r);
 void heartbeat(struct reb_simulation* r);
 
 // Declare global variable (no const!)
-double r_dust;  // dust particle radius (m)
+int num_threads;
+double r_dust;  // dust particle radius, m -> require to change SRP_coe as well!!!
 
 // Define constants
 const double G_const = 6.6743e-11; //  m^3 / kg s^2
@@ -111,11 +113,10 @@ const double T23 = 0.16237232930379;
 const double T31 = -0.104839674791979;
 const double T32 = 0.124915784491013;
 const double T33 = 0.986612735258626;
-//const double r_dust = 0.001; // dust particle radius, m -> require to change SRP_coe as well!!!
 const double rho_dust = 3000; // dust particle density, kg/m^3
 const double Rsq_didy = 850.0/2.0 * 850.0/2.0;
 const double Rsq_dimor = 175.0/2.0 * 175.0/2.0;
-const double Rsq_long_dimor = 193.0/2.0 * 193.0/2.0;  // use its longest dimension
+const double Rsq_long_dimor = 177.0/2.0 * 177.0/2.0;  // use its longest dimension
 const double Rsq_hill = 70500.0*70500.0;  // twice Hill radius of D-D system, m
 
 // J2
@@ -128,17 +129,24 @@ const double Fsun = 1367.0;  /* integrated stellar flux at 1 au, W/m^2 */
 const double SRP_coe = 1.0 * Fsun/c * 3.0/4.0/rho_dust; // Q_pr * Fsun/c * 3.0/4.0/rho_dust
 
 int main(int argc, char* argv[]){
-    // set parameter from the command line input
-    if (argc < 2) {
-        fprintf(stderr, "Usage: %s <r_dust>\n", argv[0]);
-        return 1;
+	
+    // Parse command-line arguments
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "-n") == 0 && i + 1 < argc) {
+            num_threads = atoi(argv[++i]);
+        } else if (strcmp(argv[i], "-r") == 0 && i + 1 < argc) {
+            r_dust = atof(argv[++i]);
+        } else {
+            fprintf(stderr, "Usage: %s -n <num_threads> -r <r_dust>\n", argv[0]);
+            return 1;
+        }
     }
-    r_dust = atof(argv[1]);  // Set the global variable
+    printf("Running with %d OpenMP threads\n", num_threads);
     printf("Running with r_dust = %e\n", r_dust);
 
-		// Set the number of OpenMP threads to be the number of processors
+    // Set the number of OpenMP threads to be the number of processors
     //int np = omp_get_num_procs();
-    omp_set_num_threads(28);
+    omp_set_num_threads(num_threads);
     
     // Setup simulation structure and 3D visualization server
     struct reb_simulation* r = reb_simulation_create();
@@ -214,7 +222,7 @@ int main(int argc, char* argv[]){
     // Dust particles
     if (1){
 	// open dust particles file
-	char fpath[] = "/home5/lli22/linfel_scratch/Ejecta/data_0Pa_160s.txt";
+	char fpath[] = "/nuke/linfel/Ejecta/data_high.txt";
 	FILE *dust_file = fopen(fpath, "r");
 	if (dust_file == NULL) {
 	    fprintf(stderr, "Error: Could not open file %s\n", fpath);
