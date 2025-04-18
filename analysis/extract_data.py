@@ -26,6 +26,7 @@ for file in filenames:
     save_data = {
         "radii_dust": radii_dust,
         "p_t": p_t
+        "day":day
     }
 
     # Create output filename based on dust radius or file index
