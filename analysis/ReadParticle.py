@@ -103,5 +103,5 @@ def read_particle_frames(file_particle):
     time = np.array(time)
     Np_tot = Np_seq[0]
 
-    print("processing completed!")
+    print(f"{file_particle}  processing completed!", flush=True)
     return Np_seq, time, r_dust, data_p
