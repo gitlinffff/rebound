@@ -60,16 +60,17 @@ void transform(ReadParticle *p);
 void force_radiation(struct reb_simulation* r);
 void heartbeat(struct reb_simulation* r);
 
-// Declare global variable (no const!)
+// Declare input variable (no const!)
 int num_threads;
 double r_dust;  // dust particle radius, m -> require to change SRP_coe as well!!!
+double Q_pr;    // reflectivity coefficient of solar radiation pressure
+char fpath[256];// to store input data file path
 
 // Define constants
 const double G_const = 6.6743e-11; //  m^3 / kg s^2
 const double AU = 1.495978707e11;
 const double mass_star = 1.9884e30;
 const double radius_star = 6.957e8;
-//double Q_pr = 1.0;  // reflectivity coefficient of radiation pressure
 const double tmax = 300*24*3600;  // 300 days
 const double mass_system = 5.5e11; // kg
 const double sep_system = 1170.0; // seperation m
@@ -116,7 +117,8 @@ const double T33 = 0.986612735258626;
 const double rho_dust = 3000; // dust particle density, kg/m^3
 const double Rsq_didy = 850.0/2.0 * 850.0/2.0;
 const double Rsq_dimor = 175.0/2.0 * 175.0/2.0;
-const double Rsq_long_dimor = 177.0/2.0 * 177.0/2.0;  // use its longest dimension
+const double Rsq_long_dimor = 193.0/2.0 * 193.0/2.0;  // use its longest dimension
+//const double Rsq_long_dimor = 177.0/2.0 * 177.0/2.0;  // use its longest dimension (for data_high)
 const double Rsq_hill = 70500.0*70500.0;  // twice Hill radius of D-D system, m
 
 // J2
@@ -126,7 +128,6 @@ const double J2_dimor = 0.113929814552540;  // J2 of Dimorphos
 // SRP
 const double c = 2.99792458e8;         // speed of light.
 const double Fsun = 1367.0;  /* integrated stellar flux at 1 au, W/m^2 */
-const double SRP_coe = 1.0 * Fsun/c * 3.0/4.0/rho_dust; // Q_pr * Fsun/c * 3.0/4.0/rho_dust
 
 int main(int argc, char* argv[]){
 	
@@ -136,13 +137,20 @@ int main(int argc, char* argv[]){
             num_threads = atoi(argv[++i]);
         } else if (strcmp(argv[i], "-r") == 0 && i + 1 < argc) {
             r_dust = atof(argv[++i]);
-        } else {
-            fprintf(stderr, "Usage: %s -n <num_threads> -r <r_dust>\n", argv[0]);
+        } else if (strcmp(argv[i], "-qpr") == 0 && i + 1 < argc) {
+            Q_pr = atof(argv[++i]);
+        } else if (strcmp(argv[i], "-f") == 0 && i + 1 < argc) {
+            strncpy(fpath, argv[++i], sizeof(fpath));
+            fpath[sizeof(fpath) - 1] = '\0'; // null-terminate safely
+	} else {
+            fprintf(stderr, "Usage: %s -n <num_threads> -r <r_dust> -qpr <Q_pr> -f <input_file>\n", argv[0]);
             return 1;
         }
     }
     printf("Running with %d OpenMP threads\n", num_threads);
     printf("Running with r_dust = %e\n", r_dust);
+    printf("Running with Q_pr = %e\n", Q_pr);
+    printf("Running with dust input file = %s\n", fpath);
 
     // Set the number of OpenMP threads to be the number of processors
     //int np = omp_get_num_procs();
@@ -222,7 +230,6 @@ int main(int argc, char* argv[]){
     // Dust particles
     if (1){
 	// open dust particles file
-	char fpath[] = "/nuke/linfel/Ejecta/data_high.txt";
 	FILE *dust_file = fopen(fpath, "r");
 	if (dust_file == NULL) {
 	    fprintf(stderr, "Error: Could not open file %s\n", fpath);
@@ -317,6 +324,8 @@ void transform(ReadParticle *p) {
 }
 
 void force_radiation(struct reb_simulation* r){
+    double SRP_coe = Q_pr * Fsun/c * 3.0/4.0/rho_dust;
+
     struct reb_particle* particles = r->particles;
     const struct reb_particle Didymos = particles[0];
     const struct reb_particle Dimorphos = particles[1];
