@@ -1,17 +1,18 @@
 # Extract data at a time slices and save data
-import os
-import pickle
+import numpy as np
+import os, pickle
+from ReadParticle import read_particle_frames
 
 # data path
-data_rootdir = "/home/linfel/linfel_data/ejecta_size_exp"
-filenames = [os.path.join(data_rootdir, f"run_{i:03d}", "particles.txt") for i in range(1, 4)]
+data_rootdir = "/u/lli22/ejecta_size_exp"
+filenames = [os.path.join(data_rootdir, f"run_{i:03d}", "particles.txt") for i in range(1, 22)]
 
 # Ensure output directory exists for saving frames
-output_dir = "/home/linfel/linfel_data/ejecta_size_exp/day131.29"
+output_dir = "/u/lli22/ejecta_size_exp/day278.49"
 os.makedirs(output_dir, exist_ok=True)
 
 # specify time
-target_day = 131.29
+target_day = 278.49
 target_seconds = target_day * 86400.
 
 i = 1
@@ -21,12 +22,13 @@ for file in filenames:
 
     t_idx = np.searchsorted(time, target_seconds, side="left")
     p_t = data_p[t_idx]
+    day = time[t_idx] / 86400.
 
     # Create a dictionary with the data
     save_data = {
         "radii_dust": radii_dust,
-        "p_t": p_t
-        "day":day
+        "p_t": p_t,
+        "day": day
     }
 
     # Create output filename based on dust radius or file index

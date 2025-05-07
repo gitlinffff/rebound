@@ -5,11 +5,11 @@ from ReadParticle import read_particle_frames
 import miepython as mie
 
 # data path
-data_rootdir = "/home/linfel/linfel_data/ejecta_size_exp/day131.29"
-filenames = [os.path.join(data_rootdir, f"particle_{i:03d}_day131.29.pkl") for i in range(1, 22)]
+data_rootdir = "/u/lli22/ejecta_size_exp/day278.49"
+filenames = [os.path.join(data_rootdir, f"particle_{i:03d}_day278.49.pkl") for i in range(1, 22)]
 
 # Ensure output directory exists for saving frames
-output_dir = "/home/linfel/linfel_data/ejecta_size_exp/postprocess/plot_d131.29"
+output_dir = "/u/lli22/ejecta_size_exp/postprocess/testplot_day278"
 os.makedirs(output_dir, exist_ok=True)
 
 # matrix convert vector from 'Sun Body Center' to 'Didymos System Barycenter'
@@ -26,9 +26,9 @@ m = 1.5           # refractive index of particle
 lambda0 = 500e-9  # wavelength in vacuum (m)
 
 # pixel dimension parameters
-axlims = [-28000e3, 28000e3, -28000e3, 28000e3] # axis range [x_min, x_max, y_min, y_max] (m)
-nx = 4000  # number of bins in x axis
-ny = 4000   # number of bins in y axis
+axlims = [-10000e3, 60000e3, -3000e3, 3000e3] # axis range [x_min, x_max, y_min, y_max] (m)
+nx = 7000  # number of bins in x axis
+ny = 600   # number of bins in y axis
 xedges = np.linspace(axlims[0], axlims[1], nx + 1)
 yedges = np.linspace(axlims[2], axlims[3], ny + 1)
 
@@ -84,9 +84,9 @@ for file in filenames:
     )
 
     # set weight
-    #W = 1e6
-    #weight = 10 ** ((np.log10(radii_dust)+1) * np.log10(W) / (-3))    
-    weight = 1
+    W = 1e6
+    weight = 10 ** ((np.log10(radii_dust)+1) * np.log10(W) / (-3))    
+    #weight = 1
 
     # scattering intensity (assume scattering phase angle constant for all particles)
     qext, qsca, qback, g = mie.efficiencies(m, 2*radii_dust, lambda0)
@@ -96,25 +96,26 @@ for file in filenames:
     # Accumulate intensity of each pixel
     total_inten += px_inten
 
-# Create meshgrid for bin edges
-X, Y = np.meshgrid(xedges/1e3, yedges/1e3)   # km
-
-# Plot using pcolor
-plt.figure(figsize=(10, 8))
-pc = plt.pcolor(X, Y, np.log(total_inten.T), cmap='cividis', shading='auto')
-
+# Plot the 2D histogram
+plt.figure(figsize=(12, 9))
+im = plt.imshow(
+    np.log(total_inten).T,
+    origin='lower',
+    extent=[val / 1e3 for val in axlims],
+    aspect='equal',
+    cmap='cividis'
+)
 plt.xlabel('Projected X [km]')
 plt.ylabel('Projected Y [km]')
 plt.title('2D Particle Density on View Plane')
 plt.grid(False)
-plt.axis('equal')
 
-# Colorbar
-cbar = plt.colorbar(pc, orientation='horizontal', pad=0.1, shrink=0.8, aspect=30)
+cbar = plt.colorbar(im, orientation='horizontal', pad=0.1, shrink=0.8, aspect=30)  # pad adjusts spacing
 cbar.set_label('Nondimensional Intensity')
 
 plt.tight_layout()
-output_name = os.path.join(output_dir, "tail_synt.png")
+
+output_name = os.path.join(output_dir, f"tail_synt_weight.png")
 plt.savefig(output_name, dpi=300, bbox_inches='tight')
 #plt.show()
 plt.close()
