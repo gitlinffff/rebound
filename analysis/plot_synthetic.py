@@ -5,11 +5,11 @@ from ReadParticle import read_particle_frames
 import miepython as mie
 
 # data path
-data_rootdir = "/home/linfel/linfel_data/ejecta_size_exp/day131.29"
+data_rootdir = "/home/linfel/linfel_data/ejecta_exp_qpr/day131.29"
 filenames = [os.path.join(data_rootdir, f"particle_{i:03d}_day131.29.pkl") for i in range(1, 22)]
 
 # Ensure output directory exists for saving frames
-output_dir = "/home/linfel/linfel_data/ejecta_size_exp/postprocess/plot_d131.29"
+output_dir = "/home/linfel/linfel_data/ejecta_exp_qpr/postprocess/plot_d131.29"
 os.makedirs(output_dir, exist_ok=True)
 
 # matrix convert vector from 'Sun Body Center' to 'Didymos System Barycenter'
@@ -101,20 +101,21 @@ X, Y = np.meshgrid(xedges/1e3, yedges/1e3)   # km
 
 # Plot using pcolor
 plt.figure(figsize=(10, 8))
-pc = plt.pcolor(X, Y, np.log(total_inten.T), cmap='cividis', shading='auto')
+pc = plt.pcolor(X, Y, np.log10(total_inten.T), cmap='cividis', shading='auto')
 
 plt.xlabel('Projected X [km]')
 plt.ylabel('Projected Y [km]')
-plt.title('2D Particle Density on View Plane')
-plt.grid(False)
-plt.axis('equal')
+plt.title('Intensity on View Plane (Custom Weights)')
+plt.grid(True, linestyle='--', linewidth=0.1, color='red', alpha=0.7)
+plt.gca().set_aspect('equal', adjustable='box')
 
-# Colorbar
-cbar = plt.colorbar(pc, orientation='horizontal', pad=0.1, shrink=0.8, aspect=30)
-cbar.set_label('Nondimensional Intensity')
+cbar = plt.colorbar(pc, orientation='horizontal', pad=0.1, shrink=0.8, aspect=30)  # pad adjusts spacing
+cbar.set_label(r'$\log_{10}$(Nondimensional Intensity)')
 
 plt.tight_layout()
-output_name = os.path.join(output_dir, "tail_synt.png")
+
+#output_name = os.path.join(output_dir, f"tail_synt_power_wt.png")
+output_name = os.path.join(output_dir, f"tail_synt_wt1.png")
 plt.savefig(output_name, dpi=300, bbox_inches='tight')
 #plt.show()
 plt.close()
