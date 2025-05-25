@@ -5,11 +5,11 @@ from ReadParticle import read_particle_frames
 import miepython as mie
 
 # data path
-data_rootdir = "/home/linfel/linfel_data/ejecta_exp_qpr/day131.29"
+data_rootdir = "/home/linfel/linfel_data/ejecta_exp_qpr0.6/day131.29"
 filenames = [os.path.join(data_rootdir, f"particle_{i:03d}_day131.29.pkl") for i in range(1, 22)]
 
 # Ensure output directory exists for saving frames
-output_dir = "/home/linfel/linfel_data/ejecta_exp_qpr/postprocess/plot_d131.29"
+output_dir = "/home/linfel/linfel_data/ejecta_exp_qpr0.6/postprocess/plot_d131.29"
 os.makedirs(output_dir, exist_ok=True)
 
 # matrix convert vector from 'Sun Body Center' to 'Didymos System Barycenter'
@@ -84,9 +84,9 @@ for file in filenames:
     )
 
     # set weight
-    #W = 1e6
-    #weight = 10 ** ((np.log10(radii_dust)+1) * np.log10(W) / (-3))    
-    weight = 1
+    W = 1e6
+    weight = 10 ** ((np.log10(radii_dust)+1) * np.log10(W) / (-3))    
+    #weight = 1
 
     # scattering intensity (assume scattering phase angle constant for all particles)
     qext, qsca, qback, g = mie.efficiencies(m, 2*radii_dust, lambda0)
@@ -109,13 +109,13 @@ plt.title('Intensity on View Plane (Custom Weights)')
 plt.grid(True, linestyle='--', linewidth=0.1, color='red', alpha=0.7)
 plt.gca().set_aspect('equal', adjustable='box')
 
-cbar = plt.colorbar(pc, orientation='horizontal', pad=0.1, shrink=0.8, aspect=30)  # pad adjusts spacing
+cbar = plt.colorbar(pc, orientation='horizontal', pad=0.1, shrink=0.5, aspect=30)  # pad adjusts spacing
 cbar.set_label(r'$\log_{10}$(Nondimensional Intensity)')
 
 plt.tight_layout()
 
-#output_name = os.path.join(output_dir, f"tail_synt_power_wt.png")
-output_name = os.path.join(output_dir, f"tail_synt_wt1.png")
-plt.savefig(output_name, dpi=300, bbox_inches='tight')
+output_name = os.path.join(output_dir, f"tail_synt_power_wt.png")
+#output_name = os.path.join(output_dir, f"tail_synt_wt1.png")
+plt.savefig(output_name, dpi=300, bbox_inches='tight', pad_inches=0.1)
 #plt.show()
 plt.close()
