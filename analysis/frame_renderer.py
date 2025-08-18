@@ -62,7 +62,15 @@ def render_frame_topview(frame):
     
     # Create a new figure for this frame
     fig, ax = plt.subplots(figsize=(10, 8))
-
+    
+    # Customize axis
+    ax.xaxis.set_major_formatter(FuncFormatter(m_to_km))
+    ax.yaxis.set_major_formatter(FuncFormatter(m_to_km))
+    ax.set_xlim(-axis_lim, axis_lim)
+    ax.set_ylim(-axis_lim, axis_lim)
+    ax.set_xlabel('x / km')
+    ax.set_ylabel('y / km')
+    
     # Plot Didymos and Dimorphos
     ax.scatter(p_t[0, 1], p_t[0, 2], c='red', s=10, zorder=3, label='Didymos')
     ax.scatter(p_t[1, 1], p_t[1, 2], c='blue', s=8, zorder=3, label='Dimorphos')
@@ -87,21 +95,14 @@ def render_frame_topview(frame):
     arrow_y = earth_y / earth_distance * (ax.get_xlim()[1] - ax.get_xlim()[0]) * 0.1
     ax.quiver(0, 0, arrow_x, arrow_y, angles='xy', scale_units='xy', scale=1, width=0.005, color='green', label='Earth Direction')
 
-    # Customize axis
-    ax.xaxis.set_major_formatter(FuncFormatter(m_to_km))
-    ax.yaxis.set_major_formatter(FuncFormatter(m_to_km))
-    ax.set_xlim(-axis_lim, axis_lim)
-    ax.set_ylim(-axis_lim, axis_lim)
-    ax.set_xlabel('x / km')
-    ax.set_ylabel('y / km')
     ax.grid()
     ax.legend(loc='upper right')
 
     # Set title
-    ax.set_title(f't = {sec/86400:.2f} days   Dust radius r = 1 mm')
+    ax.set_title(f't = {sec/86400:.2f} days   Top View')
 
     # Save the frame as a PNG image
-    frame_filename = os.path.join(output_dir, f"frame_{frame:04d}.png")
+    frame_filename = os.path.join(output_dir, f"topview_frame_{frame:04d}.png")
     plt.savefig(frame_filename, dpi=300, bbox_inches='tight')
     plt.close(fig)
     return frame_filename
