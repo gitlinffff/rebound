@@ -235,14 +235,27 @@ def render_single_HSTview_colorgroups(frame, alpha):
     # create an array to record coordinates of particles projected onto the plane
     p_projected = np.zeros((len(p_t),4), dtype=float)
     p_projected[:, 0] = p_t[:, 0]   # copy the column of particle ID
-    p_projected[:, -1] = p_t[:, -1] # copy the column of particle group
-    for i in range(len(p_t)):
-        p_projected[i,1] = np.dot(l1, p_t[i, 1:4])
-        p_projected[i,2] = np.dot(l2, p_t[i, 1:4])
-
+    p_projected[:, -1] = p_t[:, -1] # copy the column of particle group      
+    p_projected[:, 1] = np.dot(p_t[:, 1:4], l1)    # x coordinate
+    p_projected[:, 2] = np.dot(p_t[:, 1:4], l2)    # y coordinate
+    
     # Create a new figure for this frame
-    fig, ax = plt.subplots(figsize=(8,4))
+    fig, ax = plt.subplots(figsize=(8,8))
     font = 15
+
+    # Determine axis limit
+    if axis_lim_list is None:
+        print("No axis limits specified, using default limits.")
+    elif isinstance(axis_lim_list, list):
+        if len(axis_lim_list)==4:         # set upper, bottom, left, right axis limits
+            ax.set_xlim(axis_lim_list[0], axis_lim_list[1])
+            ax.set_ylim(axis_lim_list[2], axis_lim_list[3])
+            ax.set_aspect('equal', adjustable='box')
+    elif isinstance(axis_lim_list, float):
+        axis_lim = axis_lim_list         # Use single float value for a single frame  
+        ax.set_xlim(-axis_lim, axis_lim)
+        ax.set_ylim(-axis_lim, axis_lim)
+        ax.set_aspect('equal', adjustable='box')
     
     # plot Didymos and Dimorphos
     sc_didy = ax.scatter(p_projected[0, 1], p_projected[0, 2], c='k', s=10, zorder=3, label='Didymos')
@@ -268,19 +281,6 @@ def render_single_HSTview_colorgroups(frame, alpha):
     # Customize axis
     ax.xaxis.set_major_formatter(FuncFormatter(m_to_km))
     ax.yaxis.set_major_formatter(FuncFormatter(m_to_km))
-
-    # Determine axis limit
-    if axis_lim_list is None:
-        print("No axis limits specified, using default limits.")
-    elif isinstance(axis_lim_list, list):
-        if len(axis_lim_list)==4:         # set upper, bottom, left, right axis limits
-            ax.axis('equal')
-            ax.set_xlim(axis_lim_list[0], axis_lim_list[1])
-            ax.set_ylim(axis_lim_list[2], axis_lim_list[3])
-    elif isinstance(axis_lim_list, float):
-        axis_lim = axis_lim_list         # Use single float value for a single frame  
-        ax.set_xlim(-axis_lim, axis_lim)
-        ax.set_ylim(-axis_lim, axis_lim)
     ax.set_xlabel('x / km',fontsize=font)
     ax.set_ylabel('y / km',fontsize=font)
     ax.grid()
@@ -298,7 +298,7 @@ def render_single_HSTview_colorgroups(frame, alpha):
     # Save the frame as a PNG image
     frame_filename = os.path.join(output_dir, f"day_{sec/86400:.3f}.png")
     plt.savefig(frame_filename, dpi=300, bbox_inches='tight')
-    plt.show()
+    #plt.show()
     plt.close(fig)
     return frame_filename
 
