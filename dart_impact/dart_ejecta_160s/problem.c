@@ -168,7 +168,7 @@ int main(int argc, char* argv[]){
 	r->heartbeat           = heartbeat;
 	r->G                   = G_const;
 	
-	reb_simulation_configure_box(r,sep_system*5.,1,1,1);    
+	//reb_simulation_configure_box(r,sep_system*5.,1,1,1);    
 
     
 	// Didymos
@@ -226,7 +226,10 @@ int main(int argc, char* argv[]){
 
 	unsigned int N_particles = 4; // current number of particles (didy, dimor, sun, earth)
 	unsigned int N_scanned = 0;   // record how many particles scanned in the input particle file
-    
+	unsigned int N_didy = 0;      // record initial # of particles within radius of Didymos
+	unsigned int N_dimor = 0;     // record initial # of particles within radius of Dimorphos
+	unsigned int N_hill = 0;      // record initial # of particles farther than Hill radius
+
 	// Dust particles
 	if (1){
 		// open dust particles file
@@ -268,13 +271,17 @@ int main(int argc, char* argv[]){
 			// skip particles that are farther than hill radius and that make up Didymos or Dimorphos
 			if (disSQ_Didy < Rsq_didy){
 				fprintf(f_dp, "%f,%f,%f,%d\n", rp.x, rp.y, rp.z, 1);
+				N_didy++;
 				continue;}
 			if (disSQ_Dimor < Rsq_long_dimor){  // use Rsq_long_dimor here to delete particles that constituate Dimorphos
 				fprintf(f_dp, "%f,%f,%f,%d\n", rp.x, rp.y, rp.z, 2);
-				continue;}
+				N_dimor++;
+				//continue;
+			}
 			if (disSQ_Didy > Rsq_hill){
 				fprintf(f_dp, "%f,%f,%f,%d\n", rp.x, rp.y, rp.z, 3);
-				continue;}
+				N_hill++;
+				//continue;}
 
 			N_particles++;
 			p.hash = N_particles;
@@ -284,8 +291,11 @@ int main(int argc, char* argv[]){
 		fclose(f_dp);
   }
 
-	fprintf(stdout, "Total particle number scanned: %i\n", N_scanned);
-	fprintf(stdout, "Total particle number registered: %i\n", N_particles);
+	fprintf(stdout, "Total # of particles scanned: %i\n", N_scanned);
+	fprintf(stdout, "Total # of particles registered: %i\n", N_particles);
+	fprintf(stdout, "# of particles within Didymos: %i\n", N_didy);
+	fprintf(stdout, "# of particles within Dimorphos: %i\n", N_dimor);
+	fprintf(stdout, "# of particles outside of Hill radius: %i\n", N_hill);
 
 	system("rm -v particles.txt");
 	system("rm -v collide.txt");
