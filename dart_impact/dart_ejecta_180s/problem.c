@@ -216,68 +216,80 @@ int main(int argc, char* argv[]){
 	Earth.hash = 4;
 	reb_simulation_add(r, Earth);
 
-	unsigned int N_particles = 4; // current number of particles (didy, dimor, sun, earth)
-	unsigned int N_scanned = 0;   // record how many particles scanned in the input particle file
-    
-	// Dust particles
-	if (1){
-		// open dust particles file
-		FILE *dust_file = fopen(fpath, "r");
-		if (dust_file == NULL) {
-			fprintf(stderr, "Error: Could not open file %s\n", fpath);
-			return 1;
-		}
+  unsigned int N_particles = 4; // current number of particles (didy, dimor, sun, earth)
+  unsigned int N_scanned = 0;   // record how many particles scanned in the input particle file
+  unsigned int N_didy = 0;      // record initial # of particles within radius of Didymos
+  unsigned int N_dimor = 0;     // record initial # of particles within radius of Dimorphos
+  unsigned int N_hill = 0;      // record initial # of particles farther than Hill radius
 
-		// open a file examine the particles that are deleted
-		FILE *f_dp = fopen("deleted_particles.csv", "w");
-		if (f_dp == NULL) {
-			reb_simulation_error(r, "Could not open file: deleted_particles.csv");
-			return 1;
-		}
- 	
-		double disSQ_Didy, disSQ_Dimor;
-		ReadParticle rp;
-		while (fscanf(dust_file, "%lf %lf %lf %lf %lf %lf %lf %lf %lf",
-			&rp.ID, &rp.x, &rp.y, &rp.z, &rp.vx, &rp.vy, &rp.vz, &rp.mass, &rp.density) == 9) {
+  // Dust particles
+  if (1){
+    // open dust particles file
+    FILE *dust_file = fopen(fpath, "r");
+    if (dust_file == NULL) {
+      fprintf(stderr, "Error: Could not open file %s\n", fpath);
+      return 1;
+    }
 
-			N_scanned++;
-			// rotate the original coordinate system around its y-axis by 180 degree
-			transform(&rp);
+    // open a file examine the particles that are deleted
+    FILE *f_dp = fopen("deleted_particles.csv", "w");
+    if (f_dp == NULL) {
+      reb_simulation_error(r, "Could not open file: deleted_particles.csv");
+      return 1;
+    }
 
-			struct reb_particle p = {0};
-			p.m = 0.0;  
-			p.r = r_dust;
-			p.x = rp.x + Dimorphos.x;
-			p.y = rp.y + Dimorphos.y;
-			p.z = rp.z + Dimorphos.z;
-			p.vx = rp.vx + Dimorphos.vx;
-			p.vy = rp.vy + Dimorphos.vy;
-			p.vz = rp.vz + Dimorphos.vz;
+    double disSQ_Didy, disSQ_Dimor;
+    ReadParticle rp;
+    while (fscanf(dust_file, "%lf %lf %lf %lf %lf %lf %lf %lf %lf",
+      &rp.ID, &rp.x, &rp.y, &rp.z, &rp.vx, &rp.vy, &rp.vz, &rp.mass, &rp.density) == 9) {
 
-			disSQ_Didy  = pow(p.x-Didymos.x,2) + pow(p.y-Didymos.y,2) + pow(p.z-Didymos.z,2);
-			disSQ_Dimor = pow(p.x-Dimorphos.x,2) + pow(p.y-Dimorphos.y,2) + pow(p.z-Dimorphos.z,2);
+      N_scanned++;
+      // rotate the original coordinate system around its y-axis by 180 degree
+      transform(&rp);
 
-			// skip particles that are farther than hill radius and that make up Didymos or Dimorphos
-			if (disSQ_Didy < Rsq_didy){
-				fprintf(f_dp, "%f,%f,%f,%d\n", rp.x, rp.y, rp.z, 1);
-				continue;}
-			if (disSQ_Dimor < Rsq_long_dimor){  // use Rsq_long_dimor here to delete particles that constituate Dimorphos
-				fprintf(f_dp, "%f,%f,%f,%d\n", rp.x, rp.y, rp.z, 2);
-				continue;}
-			if (disSQ_Didy > Rsq_hill){
-				fprintf(f_dp, "%f,%f,%f,%d\n", rp.x, rp.y, rp.z, 3);
-				continue;}
+      struct reb_particle p = {0};
+      p.m = 0.0;
+      p.r = r_dust;
+      p.x = rp.x + Dimorphos.x;
+      p.y = rp.y + Dimorphos.y;
+      p.z = rp.z + Dimorphos.z;
+      p.vx = rp.vx + Dimorphos.vx;
+      p.vy = rp.vy + Dimorphos.vy;
+      p.vz = rp.vz + Dimorphos.vz;
 
-			N_particles++;
-			p.hash = N_particles;
-			reb_simulation_add(r, p);
-		}
-		fclose(dust_file);
-		fclose(f_dp);
+      disSQ_Didy  = pow(p.x-Didymos.x,2) + pow(p.y-Didymos.y,2) + pow(p.z-Didymos.z,2);
+      disSQ_Dimor = pow(p.x-Dimorphos.x,2) + pow(p.y-Dimorphos.y,2) + pow(p.z-Dimorphos.z,2);
+
+      // skip particles that are farther than hill radius and that make up Didymos or Dimorphos
+      if (disSQ_Didy < Rsq_didy){
+        fprintf(f_dp, "%f,%f,%f,%d\n", rp.x, rp.y, rp.z, 1);
+        N_didy++;
+        continue;
+			}
+      if (disSQ_Dimor < Rsq_long_dimor){  // use Rsq_long_dimor here to delete particles that constituate Dimorphos
+        fprintf(f_dp, "%f,%f,%f,%d\n", rp.x, rp.y, rp.z, 2);
+        N_dimor++;
+        //continue;
+      }
+      if (disSQ_Didy > Rsq_hill){
+        fprintf(f_dp, "%f,%f,%f,%d\n", rp.x, rp.y, rp.z, 3);
+        N_hill++;
+        //continue;
+			}
+
+      N_particles++;
+      p.hash = N_particles;
+      reb_simulation_add(r, p);
+    }
+    fclose(dust_file);
+    fclose(f_dp);
   }
 
-	fprintf(stdout, "Total particle number scanned: %i\n", N_scanned);
-	fprintf(stdout, "Total particle number registered: %i\n", N_particles);
+  fprintf(stdout, "Total # of particles scanned: %i\n", N_scanned);
+  fprintf(stdout, "Total # of particles registered: %i\n", N_particles);
+  fprintf(stdout, "# of particles within Didymos: %i\n", N_didy);
+  fprintf(stdout, "# of particles within Dimorphos: %i\n", N_dimor);
+  fprintf(stdout, "# of particles outside of Hill radius: %i\n", N_hill);
 
 	system("rm -v particles.txt");
 	system("rm -v collide.txt");

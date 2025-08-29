@@ -272,16 +272,18 @@ int main(int argc, char* argv[]){
 			if (disSQ_Didy < Rsq_didy){
 				fprintf(f_dp, "%f,%f,%f,%d\n", rp.x, rp.y, rp.z, 1);
 				N_didy++;
-				continue;}
+				continue;
+			}
 			if (disSQ_Dimor < Rsq_long_dimor){  // use Rsq_long_dimor here to delete particles that constituate Dimorphos
 				fprintf(f_dp, "%f,%f,%f,%d\n", rp.x, rp.y, rp.z, 2);
 				N_dimor++;
-				//continue;
+				continue;
 			}
 			if (disSQ_Didy > Rsq_hill){
 				fprintf(f_dp, "%f,%f,%f,%d\n", rp.x, rp.y, rp.z, 3);
 				N_hill++;
-				//continue;}
+				continue;
+			}
 
 			N_particles++;
 			p.hash = N_particles;
