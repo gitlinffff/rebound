@@ -4,17 +4,18 @@ import os, pickle
 from ReadParticle import read_particle_frames
 
 # data path
-data_rootdir = "/u/lli22/ejecta_size_exp"
+data_rootdir = "/u/lli22/ejecta_exp_datahigh"
 filenames = [os.path.join(data_rootdir, f"run_{i:03d}", "particles.txt") for i in range(1, 22)]
 
-# Ensure output directory exists for saving frames
-output_dir = "/u/lli22/ejecta_size_exp/day278.49"
-os.makedirs(output_dir, exist_ok=True)
-
-# specify time
-target_day = 278.49
+# specify the time of data to extract
+target_day = 1.14
 target_seconds = target_day * 86400.
 
+# Ensure output directory exists for saving frames
+output_dir = f"/u/lli22/ejecta_exp_datahigh/day{target_day:.2f}_pkl"
+os.makedirs(output_dir, exist_ok=True)
+
+# Process the data
 i = 1
 for file in filenames:
     # Read particle data
@@ -37,8 +38,11 @@ for file in filenames:
     # Save using pickle
     with open(output_name, 'wb') as f:
         pickle.dump(save_data, f)
+        print(f"data saved to {output_name}")
 
     # Optional: clean up memory
     del data_p
 
     i = i + 1
+
+print(f"{i-1} datasets processed.\nExtract data for day {target_day} completed.")
