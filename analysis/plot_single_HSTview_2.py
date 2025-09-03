@@ -11,18 +11,19 @@ from ReadParticle import read_particle_frames
 from frame_renderer import init_worker, render_single_HSTview_colorgroups
 
 # data path
-data_rootdir = "/home/linfel/linfel_data/ejecta_exp_adjust_size_distri_1/day131.29_pkl"
+data_rootdir = "/home/linfel/linfel_data/ejecta_exp_datahigh/day131.29_pkl"
 filenames = [os.path.join(data_rootdir, f"particle_{i:03d}_day131.29.pkl") for i in range(1, 22)]
 
 # Ensure output directory exists for saving frames
-output_dir = "/home/linfel/linfel_data/ejecta_exp_adjust_size_distri_1/postprocess/plot_d131.29"
+output_dir = "/home/linfel/linfel_data/ejecta_exp_datahigh/postprocess/plot_d131.29"
 os.makedirs(output_dir, exist_ok=True)
 
 """HST view of particles in all sizes"""
 # Set parameters
 day = 131.29                # set the day to plot
 #axis_lims = [-10000e3, 35000e3, -5000e3, 2000e3]    # m
-axis_lims = [-28799e3, 28799e3, -28799e3, 28799e3]    # m
+#axis_lims = [-28799e3, 28799e3, -28799e3, 28799e3]    # m
+axis_lims = [-28000e3, 100000e3, -40000e3, 40000e3]    # m
 alpha = 0.05                # transparency of the plotted points
 N_datasets = len(filenames)
 sid = 4  # starting index of dusts (0-3 are Didymos, Dimorphos, Sun, Earth)
@@ -32,7 +33,7 @@ colors = plt.cm.tab20.colors + plt.cm.tab20b.colors + plt.cm.tab20c.colors  # ri
 colors = colors[:N_datasets]  # only take as many as you need
 
 # print datetime
-start_time = datetime.strptime("2022-09-26 23:17:04.1830", "%Y-%m-%d %H:%M:%S.%f")
+start_time = datetime.strptime("2022-09-26 23:17:24.1830", "%Y-%m-%d %H:%M:%S.%f")
 new_time = start_time + timedelta(days=day)
 print(f"Plotting T0+{day} day, {new_time}")
 target_seconds = day * 86400.
