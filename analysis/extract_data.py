@@ -5,23 +5,19 @@ from ReadParticle import read_particle_frames
 
 # data path
 data_rootdir = "/u/lli22/ejecta_exp_datahigh"
-filenames = [os.path.join(data_rootdir, f"run_{i:03d}", "particles.txt") for i in range(1, 4)]
+filenames = [os.path.join(data_rootdir, f"run_{i:03d}", "particles.txt") for i in range(1, 22)]
 
 # specify the time of data to extract
-#extract_days = [1.14, 11.86, 64.44, 78.65, 83.77, 92.66, 114.75, 153.47]
-extract_days = [1.14, 11.86]
+extract_days = [1.14, 11.86, 64.44, 78.65, 83.77, 92.66, 114.75, 153.47]
 
-
-# Ensure output directory exists for saving frames
-#os.makedirs(output_dir, exist_ok=True)
 
 # Process the data
 i = 1
-for file in filenames:
+for file in filenames:  # Loop over datasets
 	# Read particle data
 	Np_seq, time, radii_dust, data_p = read_particle_frames(file)
 
-	for target_day in extract_days:
+	for target_day in extract_days:  # Loop over time
 		sec = target_day * 86400.
 		t_idx = np.searchsorted(time, sec, side="left")
 		p_t = data_p[t_idx]
@@ -35,9 +31,11 @@ for file in filenames:
 		}
 
 		# Create output filename based on dust radius or file index
-		output_name = os.path.join(data_rootdir, f"day{target_day:.2f}_pkl", f"particle_{i:03d}_day{target_day:.2f}.pkl")
+		output_dir = os.path.join(data_rootdir, f"day{target_day:.2f}_pkl")
+		os.makedirs(output_dir, exist_ok=True)
 
 		# Save using pickle
+		output_name = os.path.join(output_dir, f"particle_{i:03d}_day{target_day:.2f}.pkl")
 		with open(output_name, 'wb') as f:
 			pickle.dump(save_data, f)
 			print(f"data saved to {output_name}")
@@ -47,4 +45,4 @@ for file in filenames:
 
 	i = i + 1
 
-print(f"# {i-1} datasets processed.\nExtract data for day {extract_days} completed.")
+print(f"# {i-1} datasets processed.\n# Extract data for day {extract_days} completed.")
