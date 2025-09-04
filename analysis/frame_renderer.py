@@ -108,6 +108,95 @@ def render_frame_topview(frame):
     plt.close(fig)
     return frame_filename
 
+def render_frame_sideview(frame):
+    """
+    Renders a single frame of side view and saves it as a PNG file.
+
+    Args:
+        frame (int): The frame index to render.
+
+    Returns:
+        str: The path of the saved frame image.
+    """
+    global shared_data
+    data_p = shared_data['data_p']
+    time = shared_data['time']
+    axis_lim_list = shared_data['axis_lim_list']
+    output_dir = shared_data['output_dir']
+    
+    print(f"Rendering frame {frame}...", end="\r", flush=True)    
+    p_t = data_p[frame]
+    sec = time[frame]
+
+    # Determine axis limit
+    if isinstance(axis_lim_list, list):
+        axis_lim = axis_lim_list[frame]  # Use frame-specific axis limit
+    else:
+        axis_lim = axis_lim_list  # Use single float value for a single frame
+    
+    # position vector
+    r_dimor = p_t[1, 1:4]  # [x, y, z] of Dimorphos
+    v_dimor = p_t[1, 4:7]  # [vx, vy, vz] of Dimorphos
+    
+    # calculate the two basis vectors of the projection plane
+    l2 = np.cross(v_dimor, r_dimor)
+    l1 = r_dimor / np.linalg.norm(r_dimor)
+    l2 = l2 / np.linalg.norm(l2)
+    
+    # create an array to record coordinates of particles projected onto the plane
+    p_projected = np.zeros((len(p_t),3), dtype=float)
+    p_projected[:, 0] = p_t[:, 0]                  # copy the column of particle ID
+    p_projected[:, 1] = np.dot(p_t[:, 1:4], l1)    # x coordinate
+    p_projected[:, 2] = np.dot(p_t[:, 1:4], l2)    # y coordinate
+
+    # Create a new figure for this frame
+    fig, ax = plt.subplots(figsize=(8, 8))
+    
+    # Customize axis
+    ax.xaxis.set_major_formatter(FuncFormatter(m_to_km))
+    ax.yaxis.set_major_formatter(FuncFormatter(m_to_km))
+    ax.set_xlim(-axis_lim, axis_lim)
+    ax.set_ylim(-axis_lim, axis_lim)
+    ax.set_aspect('equal', adjustable='box')
+    
+    # plot Didymos and Dimorphos
+    ax.scatter(p_projected[0, 1], p_projected[0, 2], c='red', s=10, zorder=3, label='Didymos')
+    ax.scatter(p_projected[1, 1], p_projected[1, 2], c='blue', s=8, zorder=3, label='Dimorphos')
+
+    # Plot dust particles
+    speed = (p_t[4:, 4]**2 + p_t[4:, 5]**2 + p_t[4:, 6]**2)**0.5
+    dust_sc = ax.scatter(p_projected[4:, 1], p_projected[4:, 2], c=speed, s=2, cmap='viridis', norm=LogNorm())
+    cb = fig.colorbar(dust_sc, ax=ax, shrink=0.8, aspect=20)
+    cb.set_label(f'speed (m/s)', fontsize=12)
+    
+    # Plot Sun direction relative to Didymos System Barycenter
+    sun_x, sun_y = p_projected[2, 1], p_projected[2, 2]
+    sun_distance = (sun_x**2 + sun_y**2) ** 0.5
+    arrow_x = sun_x / sun_distance * (ax.get_xlim()[1] - ax.get_xlim()[0]) * 0.1
+    arrow_y = sun_y / sun_distance * (ax.get_xlim()[1] - ax.get_xlim()[0]) * 0.1
+    ax.quiver(0, 0, arrow_x, arrow_y, angles='xy', scale_units='xy', scale=1, width=0.005, color='orange', label='Sun Direction')
+    
+    # Plot Earth direction
+    earth_x, earth_y = p_projected[3, 1], p_projected[3, 2]
+    earth_distance = (earth_x**2 + earth_y**2) ** 0.5
+    arrow_x = earth_x / earth_distance * (ax.get_xlim()[1] - ax.get_xlim()[0]) * 0.1
+    arrow_y = earth_y / earth_distance * (ax.get_xlim()[1] - ax.get_xlim()[0]) * 0.1
+    ax.quiver(0, 0, arrow_x, arrow_y, angles='xy', scale_units='xy', scale=1, width=0.005, color='green', label='Earth Direction')
+    
+    ax.set_xlabel('X / km')
+    ax.set_ylabel('Z / km')
+    ax.grid()
+    ax.legend(loc='upper right')
+    
+    # Set title
+    ax.set_title(f't = {sec/86400:.2f} days   Side view positions')
+    
+    # Save the frame as a PNG image
+    frame_filename = os.path.join(output_dir, f"sideview_frame_{frame:04d}.png")
+    plt.savefig(frame_filename, dpi=300, bbox_inches='tight')
+    plt.close(fig)
+    return frame_filename
+
 
 def render_frame_HSTview(frame):
     """
@@ -192,7 +281,7 @@ def render_frame_HSTview(frame):
     ax.legend(loc='upper right')
    
     # Set title
-    ax.set_title(f't = {sec/86400:.2f} days   HST View')
+    ax.set_title(f't = {sec/86400:.2f} days   HST Perspective')
 
     # Save the frame as a PNG image
     frame_filename = os.path.join(output_dir, f"hstview_frame_{frame:04d}.png")
