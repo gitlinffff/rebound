@@ -274,7 +274,7 @@ int main(int argc, char* argv[]){
       if (disSQ_Didy > Rsq_hill){
         fprintf(f_dp, "%f,%f,%f,%d\n", rp.x, rp.y, rp.z, 3);
         N_hill++;
-        //continue;
+        continue;
 			}
 
       N_particles++;

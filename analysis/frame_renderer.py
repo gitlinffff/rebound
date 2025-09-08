@@ -256,7 +256,6 @@ def render_frame_HSTview(frame):
         ax.set_xlim(-axis_lim, axis_lim)
         ax.set_ylim(-axis_lim, axis_lim)
     ax.set_aspect('equal', adjustable='box')
-
     
     # plot Didymos and Dimorphos
     ax.scatter(p_projected[0, 1], p_projected[0, 2], c='red', s=10, zorder=3, label='Didymos')
@@ -272,6 +271,16 @@ def render_frame_HSTview(frame):
     arrow_y = sun_y / sun_distance * (ax.get_xlim()[1] - ax.get_xlim()[0]) * 0.1
     ax.quiver(0, 0, arrow_x, arrow_y, angles='xy', scale_units='xy', scale=1, width=0.005, color='orange', label='Sun Direction')
 
+    # Heliocentric velocity direction of Didymos
+    v_didy_heliocentric = p_t[0, 4:7] - p_t[2, 4:7]
+    hvdd_x_proj = np.dot(v_didy_heliocentric, l1)
+    hvdd_y_proj = np.dot(v_didy_heliocentric, l2)
+    ratio = (ax.get_xlim()[1] - ax.get_xlim()[0]) * 0.1 / (hvdd_x_proj**2 + hvdd_y_proj**2) ** 0.5
+    arrow_x = hvdd_x_proj * ratio
+    arrow_y = hvdd_y_proj * ratio
+    ax.quiver(0, 0, arrow_x, arrow_y, angles='xy', scale_units='xy', scale=1, width=0.005, color='cyan',
+              label='Heliocentric velocity direction of Didymos')
+    
     # Customize axis
     ax.xaxis.set_major_formatter(FuncFormatter(m_to_km))
     ax.yaxis.set_major_formatter(FuncFormatter(m_to_km))
