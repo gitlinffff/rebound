@@ -29,12 +29,12 @@ def init_worker(data_p, time, axis_lim_list, output_dir, group_labels=None):
 
 # Convert length unit for axis labels
 def m_to_km(x, _):
-    return f'{x / 1e3:.0f}'
+    return f'{x / 1e3:.1f}'
 
 def m_to_au(x, _):
     return f'{x / 1.495978707e11:.1f}'
 
-def render_frame_topview(frame):
+def render_frame_topview(frame, dpi=100):
     """
     Renders a single frame of top view and saves it as a PNG file.
 
@@ -69,8 +69,7 @@ def render_frame_topview(frame):
     ax.yaxis.set_major_formatter(FuncFormatter(m_to_km))
     ax.set_xlim(-axis_lim, axis_lim)
     ax.set_ylim(-axis_lim, axis_lim)
-    ax.set_xlabel('x / km')
-    ax.set_ylabel('y / km')
+    ax.set_aspect('equal', adjustable='box')
     
     # Plot Didymos and Dimorphos
     ax.scatter(p_t[0, 1], p_t[0, 2], c='red', s=10, zorder=3, label='Didymos')
@@ -96,6 +95,8 @@ def render_frame_topview(frame):
     arrow_y = earth_y / earth_distance * (ax.get_xlim()[1] - ax.get_xlim()[0]) * 0.1
     ax.quiver(0, 0, arrow_x, arrow_y, angles='xy', scale_units='xy', scale=1, width=0.005, color='green', label='Earth Direction')
 
+    ax.set_xlabel('x / km')
+    ax.set_ylabel('y / km')
     ax.grid()
     ax.legend(loc='upper right')
 
@@ -104,11 +105,11 @@ def render_frame_topview(frame):
 
     # Save the frame as a PNG image
     frame_filename = os.path.join(output_dir, f"topview_frame_{frame:04d}.png")
-    plt.savefig(frame_filename, dpi=300, bbox_inches='tight')
+    plt.savefig(frame_filename, dpi=dpi, bbox_inches='tight')
     plt.close(fig)
     return frame_filename
 
-def render_frame_sideview(frame):
+def render_frame_sideview(frame, dpi=100):
     """
     Renders a single frame of side view and saves it as a PNG file.
 
@@ -193,12 +194,12 @@ def render_frame_sideview(frame):
     
     # Save the frame as a PNG image
     frame_filename = os.path.join(output_dir, f"sideview_frame_{frame:04d}.png")
-    plt.savefig(frame_filename, dpi=300, bbox_inches='tight')
+    plt.savefig(frame_filename, dpi=dpi, bbox_inches='tight')
     plt.close(fig)
     return frame_filename
 
 
-def render_frame_HSTview(frame):
+def render_frame_HSTview(frame, dpi=100):
     """
     Renders a single frame of HST view and saves it as a PNG file.
 
@@ -294,7 +295,7 @@ def render_frame_HSTview(frame):
 
     # Save the frame as a PNG image
     frame_filename = os.path.join(output_dir, f"hstview_frame_{frame:04d}.png")
-    plt.savefig(frame_filename, dpi=300, bbox_inches='tight')
+    plt.savefig(frame_filename, dpi=dpi, bbox_inches='tight')
     plt.close(fig)
     return frame_filename
 
