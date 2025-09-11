@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
+from matplotlib.colors import LogNorm
 import os
 import numpy as np
 
@@ -28,12 +29,12 @@ def init_worker(data_p, time, axis_lim_list, output_dir, group_labels=None):
 
 # Convert length unit for axis labels
 def m_to_km(x, _):
-    return f'{x / 1e3:.0f}'
+    return f'{x / 1e3:.1f}'
 
 def m_to_au(x, _):
     return f'{x / 1.495978707e11:.1f}'
 
-def render_frame_topview(frame):
+def render_frame_topview(frame, dpi=100):
     """
     Renders a single frame of top view and saves it as a PNG file.
 
@@ -68,8 +69,7 @@ def render_frame_topview(frame):
     ax.yaxis.set_major_formatter(FuncFormatter(m_to_km))
     ax.set_xlim(-axis_lim, axis_lim)
     ax.set_ylim(-axis_lim, axis_lim)
-    ax.set_xlabel('x / km')
-    ax.set_ylabel('y / km')
+    ax.set_aspect('equal', adjustable='box')
     
     # Plot Didymos and Dimorphos
     ax.scatter(p_t[0, 1], p_t[0, 2], c='red', s=10, zorder=3, label='Didymos')
@@ -77,7 +77,7 @@ def render_frame_topview(frame):
 
     # Plot dust particles
     speed = (p_t[4:, 4]**2 + p_t[4:, 5]**2 + p_t[4:, 6]**2)**0.5
-    dust_sc = ax.scatter(p_t[4:, 1], p_t[4:, 2], c=speed, s=2, cmap='viridis')
+    dust_sc = ax.scatter(p_t[4:, 1], p_t[4:, 2], c=speed, s=2, cmap='viridis', norm=LogNorm())
     cb = fig.colorbar(dust_sc, ax=ax, shrink=0.8, aspect=20)
     cb.set_label(f'speed (m/s)', fontsize=12)
 
@@ -95,6 +95,8 @@ def render_frame_topview(frame):
     arrow_y = earth_y / earth_distance * (ax.get_xlim()[1] - ax.get_xlim()[0]) * 0.1
     ax.quiver(0, 0, arrow_x, arrow_y, angles='xy', scale_units='xy', scale=1, width=0.005, color='green', label='Earth Direction')
 
+    ax.set_xlabel('x / km')
+    ax.set_ylabel('y / km')
     ax.grid()
     ax.legend(loc='upper right')
 
@@ -103,12 +105,101 @@ def render_frame_topview(frame):
 
     # Save the frame as a PNG image
     frame_filename = os.path.join(output_dir, f"topview_frame_{frame:04d}.png")
-    plt.savefig(frame_filename, dpi=300, bbox_inches='tight')
+    plt.savefig(frame_filename, dpi=dpi, bbox_inches='tight')
+    plt.close(fig)
+    return frame_filename
+
+def render_frame_sideview(frame, dpi=100):
+    """
+    Renders a single frame of side view and saves it as a PNG file.
+
+    Args:
+        frame (int): The frame index to render.
+
+    Returns:
+        str: The path of the saved frame image.
+    """
+    global shared_data
+    data_p = shared_data['data_p']
+    time = shared_data['time']
+    axis_lim_list = shared_data['axis_lim_list']
+    output_dir = shared_data['output_dir']
+    
+    print(f"Rendering frame {frame}...", end="\r", flush=True)    
+    p_t = data_p[frame]
+    sec = time[frame]
+
+    # Determine axis limit
+    if isinstance(axis_lim_list, list):
+        axis_lim = axis_lim_list[frame]  # Use frame-specific axis limit
+    else:
+        axis_lim = axis_lim_list  # Use single float value for a single frame
+    
+    # position vector
+    r_dimor = p_t[1, 1:4]  # [x, y, z] of Dimorphos
+    v_dimor = p_t[1, 4:7]  # [vx, vy, vz] of Dimorphos
+    
+    # calculate the two basis vectors of the projection plane
+    l2 = np.cross(v_dimor, r_dimor)
+    l1 = r_dimor / np.linalg.norm(r_dimor)
+    l2 = l2 / np.linalg.norm(l2)
+    
+    # create an array to record coordinates of particles projected onto the plane
+    p_projected = np.zeros((len(p_t),3), dtype=float)
+    p_projected[:, 0] = p_t[:, 0]                  # copy the column of particle ID
+    p_projected[:, 1] = np.dot(p_t[:, 1:4], l1)    # x coordinate
+    p_projected[:, 2] = np.dot(p_t[:, 1:4], l2)    # y coordinate
+
+    # Create a new figure for this frame
+    fig, ax = plt.subplots(figsize=(8, 8))
+    
+    # Customize axis
+    ax.xaxis.set_major_formatter(FuncFormatter(m_to_km))
+    ax.yaxis.set_major_formatter(FuncFormatter(m_to_km))
+    ax.set_xlim(-axis_lim, axis_lim)
+    ax.set_ylim(-axis_lim, axis_lim)
+    ax.set_aspect('equal', adjustable='box')
+    
+    # plot Didymos and Dimorphos
+    ax.scatter(p_projected[0, 1], p_projected[0, 2], c='red', s=10, zorder=3, label='Didymos')
+    ax.scatter(p_projected[1, 1], p_projected[1, 2], c='blue', s=8, zorder=3, label='Dimorphos')
+
+    # Plot dust particles
+    speed = (p_t[4:, 4]**2 + p_t[4:, 5]**2 + p_t[4:, 6]**2)**0.5
+    dust_sc = ax.scatter(p_projected[4:, 1], p_projected[4:, 2], c=speed, s=2, cmap='viridis', norm=LogNorm())
+    cb = fig.colorbar(dust_sc, ax=ax, shrink=0.8, aspect=20)
+    cb.set_label(f'speed (m/s)', fontsize=12)
+    
+    # Plot Sun direction relative to Didymos System Barycenter
+    sun_x, sun_y = p_projected[2, 1], p_projected[2, 2]
+    sun_distance = (sun_x**2 + sun_y**2) ** 0.5
+    arrow_x = sun_x / sun_distance * (ax.get_xlim()[1] - ax.get_xlim()[0]) * 0.1
+    arrow_y = sun_y / sun_distance * (ax.get_xlim()[1] - ax.get_xlim()[0]) * 0.1
+    ax.quiver(0, 0, arrow_x, arrow_y, angles='xy', scale_units='xy', scale=1, width=0.005, color='orange', label='Sun Direction')
+    
+    # Plot Earth direction
+    earth_x, earth_y = p_projected[3, 1], p_projected[3, 2]
+    earth_distance = (earth_x**2 + earth_y**2) ** 0.5
+    arrow_x = earth_x / earth_distance * (ax.get_xlim()[1] - ax.get_xlim()[0]) * 0.1
+    arrow_y = earth_y / earth_distance * (ax.get_xlim()[1] - ax.get_xlim()[0]) * 0.1
+    ax.quiver(0, 0, arrow_x, arrow_y, angles='xy', scale_units='xy', scale=1, width=0.005, color='green', label='Earth Direction')
+    
+    ax.set_xlabel('X / km')
+    ax.set_ylabel('Z / km')
+    ax.grid()
+    ax.legend(loc='upper right')
+    
+    # Set title
+    ax.set_title(f't = {sec/86400:.2f} days   Side view positions')
+    
+    # Save the frame as a PNG image
+    frame_filename = os.path.join(output_dir, f"sideview_frame_{frame:04d}.png")
+    plt.savefig(frame_filename, dpi=dpi, bbox_inches='tight')
     plt.close(fig)
     return frame_filename
 
 
-def render_frame_HSTview(frame):
+def render_frame_HSTview(frame, dpi=100):
     """
     Renders a single frame of HST view and saves it as a PNG file.
 
@@ -128,46 +219,31 @@ def render_frame_HSTview(frame):
     p_t = data_p[frame]
     sec = time[frame]
 
-    # position and velocity vector of Sun
-    #r_sun = p_t[2, 1:4]
-    v_sun = p_t[2, 4:7]
+    # matrix convert vector from 'Sun Body Center' to 'Didymos System Barycenter'
+    SBC_rotate_DSB = np.array([[-0.703595792353257, -0.710438191316344, 0.015183454875444],
+                              [ 0.702824020343859, -0.692584740738747,  0.16237232930379 ],
+                              [-0.104839674791979,  0.124915784491013,  0.986612735258626]])
+    # sky north vector and convert it to 'Didymos System Barycenter' frame
+    sky_north = np.array([0, 0, 1])
+    r_sky_north = np.dot(SBC_rotate_DSB, sky_north.T)
     
     # position vector of Earth (as a proxy of HST)
     r_earth = p_t[3, 1:4]
 
     # calculate the two basis vectors of the projection plane
-    l1 = np.cross(r_earth, v_sun)
-    l2 = np.cross(l1, r_earth)
+    l1 = np.cross(r_sky_north, r_earth)
+    l2 = np.cross(r_earth, l1)
     l1 = l1 / np.linalg.norm(l1)
     l2 = l2 / np.linalg.norm(l2)
 
     # create an array to record coordinates of particles projected onto the plane
     p_projected = np.zeros((len(p_t),3), dtype=float)
     p_projected[:, 0] = p_t[:, 0]   # copy the column of particle ID   
-    for i in range(len(p_t)):
-        p_projected[i,1] = np.dot(l2, p_t[i, 1:4])
-        p_projected[i,2] = np.dot(l1, p_t[i, 1:4])
+    p_projected[:, 1] = np.dot(p_t[:, 1:4], l1)    # x coordinate
+    p_projected[:, 2] = np.dot(p_t[:, 1:4], l2)    # y coordinate
 
     # Create a new figure for this frame
     fig, ax = plt.subplots(figsize=(8, 8))
-    
-    # plot Didymos and Dimorphos
-    ax.scatter(p_projected[0, 1], p_projected[0, 2], c='red', s=10, zorder=3, label='Didymos')
-    ax.scatter(p_projected[1, 1], p_projected[1, 2], c='blue', s=8, zorder=3, label='Dimorphos')
-
-    # plot dust particles
-    ax.scatter(p_projected[4:, 1], p_projected[4:, 2], c='k', s=0.5)
-
-    # Plot Sun direction relative to Didymos System Barycenter
-    sun_x, sun_y = p_projected[2, 1], p_projected[2, 2]
-    sun_distance = (sun_x**2 + sun_y**2) ** 0.5
-    arrow_x = sun_x / sun_distance * (ax.get_xlim()[1] - ax.get_xlim()[0]) * 0.1
-    arrow_y = sun_y / sun_distance * (ax.get_xlim()[1] - ax.get_xlim()[0]) * 0.1
-    ax.quiver(0, 0, arrow_x, arrow_y, angles='xy', scale_units='xy', scale=1, width=0.005, color='orange', label='Sun Direction')
-
-    # Customize axis
-    ax.xaxis.set_major_formatter(FuncFormatter(m_to_km))
-    ax.yaxis.set_major_formatter(FuncFormatter(m_to_km))
 
     # Determine axis limit
     if axis_lim_list is None:
@@ -180,17 +256,46 @@ def render_frame_HSTview(frame):
         axis_lim = axis_lim_list         # Use single float value for a single frame  
         ax.set_xlim(-axis_lim, axis_lim)
         ax.set_ylim(-axis_lim, axis_lim)
+    ax.set_aspect('equal', adjustable='box')
+    
+    # plot Didymos and Dimorphos
+    ax.scatter(p_projected[0, 1], p_projected[0, 2], c='red', s=10, zorder=3, label='Didymos')
+    ax.scatter(p_projected[1, 1], p_projected[1, 2], c='blue', s=8, zorder=3, label='Dimorphos')
+
+    # plot dust particles
+    ax.scatter(p_projected[4:, 1], p_projected[4:, 2], c='k', s=0.5, alpha=0.2)
+
+    # Plot Sun direction relative to Didymos System Barycenter
+    sun_x, sun_y = p_projected[2, 1], p_projected[2, 2]
+    sun_distance = (sun_x**2 + sun_y**2) ** 0.5
+    arrow_x = sun_x / sun_distance * (ax.get_xlim()[1] - ax.get_xlim()[0]) * 0.1
+    arrow_y = sun_y / sun_distance * (ax.get_xlim()[1] - ax.get_xlim()[0]) * 0.1
+    ax.quiver(0, 0, arrow_x, arrow_y, angles='xy', scale_units='xy', scale=1, width=0.005, color='orange', label='Sun Direction')
+
+    # Heliocentric velocity direction of Didymos
+    v_didy_heliocentric = p_t[0, 4:7] - p_t[2, 4:7]
+    hvdd_x_proj = np.dot(v_didy_heliocentric, l1)
+    hvdd_y_proj = np.dot(v_didy_heliocentric, l2)
+    ratio = (ax.get_xlim()[1] - ax.get_xlim()[0]) * 0.1 / (hvdd_x_proj**2 + hvdd_y_proj**2) ** 0.5
+    arrow_x = hvdd_x_proj * ratio
+    arrow_y = hvdd_y_proj * ratio
+    ax.quiver(0, 0, arrow_x, arrow_y, angles='xy', scale_units='xy', scale=1, width=0.005, color='cyan',
+              label='Heliocentric velocity direction of Didymos')
+    
+    # Customize axis
+    ax.xaxis.set_major_formatter(FuncFormatter(m_to_km))
+    ax.yaxis.set_major_formatter(FuncFormatter(m_to_km))
     ax.set_xlabel('x / km')
     ax.set_ylabel('y / km')
     ax.grid()
     ax.legend(loc='upper right')
    
     # Set title
-    ax.set_title(f't = {sec/86400:.2f} days   Dust radius r = 1 mm')
+    ax.set_title(f't = {sec/86400:.2f} days   HST Perspective')
 
     # Save the frame as a PNG image
-    frame_filename = os.path.join(output_dir, f"frame_{frame:04d}.png")
-    plt.savefig(frame_filename, dpi=300, bbox_inches='tight')
+    frame_filename = os.path.join(output_dir, f"hstview_frame_{frame:04d}.png")
+    plt.savefig(frame_filename, dpi=dpi, bbox_inches='tight')
     plt.close(fig)
     return frame_filename
 
