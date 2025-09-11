@@ -79,7 +79,7 @@ const double vol_dimor = 0.001830603200702610;
 const double rho_dust = 3000; // dust particle density, kg/m^3
 const double Rsq_didy = 850.0/2.0 * 850.0/2.0;
 const double Rsq_dimor = 175.0/2.0 * 175.0/2.0;
-const double Rsq_long_dimor = 193.0/2.0 * 193.0/2.0;  // use its longest dimension
+//const double Rsq_long_dimor = 193.0/2.0 * 193.0/2.0;  // use its longest dimension
 //const double Rsq_long_dimor = 177.0/2.0 * 177.0/2.0;  // use its longest dimension (for data_high)
 const double Rsq_hill = 70500.0*70500.0;  // twice Hill radius of D-D system, m
 
@@ -266,10 +266,10 @@ int main(int argc, char* argv[]){
         N_didy++;
         continue;
 			}
-      if (disSQ_Dimor < Rsq_long_dimor){  // use Rsq_long_dimor here to delete particles that constituate Dimorphos
+      if (disSQ_Dimor < Rsq_dimor){
         fprintf(f_dp, "%f,%f,%f,%d\n", rp.x, rp.y, rp.z, 2);
         N_dimor++;
-        //continue;
+        continue;
       }
       if (disSQ_Didy > Rsq_hill){
         fprintf(f_dp, "%f,%f,%f,%d\n", rp.x, rp.y, rp.z, 3);
