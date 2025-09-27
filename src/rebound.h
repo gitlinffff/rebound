@@ -729,6 +729,8 @@ DLLEXPORT void reb_simulation_save_to_file_step(struct reb_simulation* const r, 
 DLLEXPORT void reb_simulation_save_to_stream(struct reb_simulation* r, char** bufp, size_t* sizep);
 // Output timing data to file. Appends file if it exists.
 DLLEXPORT void reb_simulation_output_timing(struct reb_simulation* r, const double tmax);
+// Output dt data to file. Appends file if it exists.
+DLLEXPORT void reb_simulation_output_dt(struct reb_simulation* r, const double tmax, const char* filename);
 // Output orbits to file. Appends file if it exists.
 DLLEXPORT void reb_simulation_output_orbits(struct reb_simulation* r, char* filename);
 // Output cartesian coordinates to file. Appends file if it exists.

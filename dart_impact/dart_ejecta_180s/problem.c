@@ -524,6 +524,8 @@ void heartbeat(struct reb_simulation* r){
 		reb_simulation_move_to_DidyDimor_com(r);
 		//reb_simulation_move_to_hel(r);
 		//reb_move_to_Didymos(r);
+	
+		reb_simulation_output_dt(r, tmax, "dt_history.csv");
 	}
     
 	//  output all particles
@@ -533,6 +535,7 @@ void heartbeat(struct reb_simulation* r){
 		double di;
 
 		reb_simulation_output_timing(r, tmax);
+		printf("\n");
 
 		// output particle position and velocity
 		FILE* fp = fopen("particles.txt","ab+");

@@ -332,6 +332,31 @@ int reb_simulation_output_screenshot(struct reb_simulation* r, const char* filen
     return 0;
 }
 
+void reb_simulation_output_dt(struct reb_simulation* r, const double tmax, const char* filename){
+	int N_tot = r->N;
+
+	// Open file in append mode
+	FILE* f_dt = fopen(filename, "a");
+	if (f_dt == NULL) {
+		char error_msg[50];
+		sprintf(error_msg, "Could not open file: %s", filename);
+		reb_simulation_error(r, error_msg);
+		return;
+	}
+
+	// If file is empty, print header
+	static int header_written = 0;
+	if (!header_written){
+		fprintf(f_dt, "N_tot,t,dt,t/tmax%%\n");
+		header_written = 1;
+	}
+
+	// Write values
+	fprintf(f_dt, "%-10d %-15.6f %-15.6f %-8.4f\n", N_tot, r->t, r->dt, r->t/tmax*100.0);
+
+	fclose(f_dt);
+}
+
 
 void reb_simulation_output_timing(struct reb_simulation* r, const double tmax){
     const int N = r->N;
