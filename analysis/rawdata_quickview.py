@@ -49,7 +49,7 @@ def plot_particles_3d(filename, x_lim=None, y_lim=None, z_lim=None, point_size=5
 
     plt.show()
 
-def plot_vx(filename, x_lim=None, y_lim=None, point_size=10):
+def plot_vx(filename, output_name, x_lim=None, y_lim=None, point_size=10):
     """
     Reads particle data from a file and creates a scatter plot of x vs. y,
     with points colored by their total speed.
@@ -99,16 +99,18 @@ def plot_vx(filename, x_lim=None, y_lim=None, point_size=10):
     if y_lim:
         ax.set_ylim(y_lim)
 
+    plt.savefig(output_name, dpi=100, bbox_inches='tight')
     plt.show()
 
 
-def plot_vy(filename, x_lim=None, y_lim=None, point_size=10):
+def plot_vy(filename, output_name, x_lim=None, y_lim=None, point_size=10):
     """
     Reads particle data from a file and creates a scatter plot of x vs. y,
     with points colored by their total speed.
 
     Args:
         filename (str): Path to the data file.
+        output_name (str): Path of the output file
         x_lim (tuple, optional): A tuple (xmin, xmax) for the x-axis limit.
         y_lim (tuple, optional): A tuple (ymin, ymax) for the y-axis limit.
         point_size (int, optional): The size of the markers in the scatter plot.
@@ -151,7 +153,8 @@ def plot_vy(filename, x_lim=None, y_lim=None, point_size=10):
         ax.set_xlim(x_lim)
     if y_lim:
         ax.set_ylim(y_lim)
-
+    
+    plt.savefig(output_name, dpi=100, bbox_inches='tight')
     plt.show()
 
 
@@ -162,5 +165,5 @@ if __name__ == '__main__':
 #    plot_particles_3d("/nuke/linfel/Ejecta/data_0Pa_160s_dimor_removed.txt", 
 #                      x_lim=(-200e2, 200e2), y_lim=(-200e2, 200e2), z_lim=(-200e2, 200e2))
     
-    plot_vx("/nuke/linfel/Ejecta/data_0Pa_160s_dimor_removed.txt", 
+    plot_vy("/nuke/linfel/Ejecta/data_high_shifted.txt", "/home/linfel/vy.png",
                       x_lim=(-200e2, 200e2), y_lim=(-200e2, 200e2))

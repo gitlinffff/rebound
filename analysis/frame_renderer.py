@@ -263,7 +263,7 @@ def render_frame_HSTview(frame, dpi=100):
     ax.scatter(p_projected[1, 1], p_projected[1, 2], c='blue', s=8, zorder=3, label='Dimorphos')
 
     # plot dust particles
-    ax.scatter(p_projected[4:, 1], p_projected[4:, 2], c='k', s=0.5, alpha=0.2)
+    ax.scatter(p_projected[4:, 1], p_projected[4:, 2], c='k', s=0.5, alpha=0.05)
 
     # Plot Sun direction relative to Didymos System Barycenter
     sun_x, sun_y = p_projected[2, 1], p_projected[2, 2]
