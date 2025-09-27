@@ -64,6 +64,7 @@ void heartbeat(struct reb_simulation* r);
 int num_threads;
 double r_dust;  // dust particle radius, m -> require to change SRP_coe as well!!!
 double Q_pr;    // reflectivity coefficient of solar radiation pressure
+double tmax; // time to end simulation, seconds
 char fpath[256];// to store input data file path
 
 // Define constants
@@ -71,7 +72,6 @@ const double G_const = 6.6743e-11; //  m^3 / kg s^2
 const double AU = 1.495978707e11;
 const double mass_star = 1.9884e30;
 const double radius_star = 6.957e8;
-const double tmax = 300*24*3600;  // 300 days
 const double mass_system = 5.5e11; // kg
 const double sep_system = 1170.0; // seperation m
 const double vol_didy = 0.2295409644951028;  // km^3
@@ -131,17 +131,20 @@ int main(int argc, char* argv[]){
 			r_dust = atof(argv[++i]);
 		} else if (strcmp(argv[i], "-qpr") == 0 && i + 1 < argc) {
 			Q_pr = atof(argv[++i]);
+		} else if (strcmp(argv[i], "-t") == 0 && i + 1 < argc) {
+			tmax = atof(argv[++i]);
 		} else if (strcmp(argv[i], "-f") == 0 && i + 1 < argc) {
 			strncpy(fpath, argv[++i], sizeof(fpath));
 			fpath[sizeof(fpath) - 1] = '\0'; // null-terminate safely
 		} else {
-			fprintf(stderr, "Usage: %s -n <num_threads> -r <r_dust> -qpr <Q_pr> -f <input_file>\n", argv[0]);
+			fprintf(stderr, "Usage: %s -n <num_threads> -r <r_dust> -qpr <Q_pr> -t <tmax> -f <input_file>\n", argv[0]);
 			return 1;
 		}
 	}
 	printf("Running with %d OpenMP threads\n", num_threads);
 	printf("Running with r_dust = %e\n", r_dust);
 	printf("Running with Q_pr = %e\n", Q_pr);
+	printf("Running with tmax = %f\n", tmax);
 	printf("Running with dust input file = %s\n", fpath);
 
 	// Set the number of OpenMP threads to be the number of processors
@@ -216,11 +219,11 @@ int main(int argc, char* argv[]){
 	Earth.hash = 4;
 	reb_simulation_add(r, Earth);
 
-  unsigned int N_particles = 4; // current number of particles (didy, dimor, sun, earth)
-  unsigned int N_scanned = 0;   // record how many particles scanned in the input particle file
-  unsigned int N_didy = 0;      // record initial # of particles within radius of Didymos
-  unsigned int N_dimor = 0;     // record initial # of particles within radius of Dimorphos
-  unsigned int N_hill = 0;      // record initial # of particles farther than Hill radius
+	unsigned int N_particles = 4; // current number of particles (didy, dimor, sun, earth)
+	unsigned int N_scanned = 0;   // record how many particles scanned in the input particle file
+	unsigned int N_didy = 0;      // record initial # of particles within radius of Didymos
+	unsigned int N_dimor = 0;     // record initial # of particles within radius of Dimorphos
+	unsigned int N_hill = 0;      // record initial # of particles farther than Hill radius
 
   // Dust particles
   if (1){
