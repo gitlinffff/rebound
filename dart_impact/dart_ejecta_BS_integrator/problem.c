@@ -225,11 +225,11 @@ int main(int argc, char* argv[]){
 	Earth.hash = 4;
 	reb_simulation_add(r, Earth);
 
-  unsigned int N_particles = 4; // current number of particles (didy, dimor, sun, earth)
-  unsigned int N_scanned = 0;   // record how many particles scanned in the input particle file
-  unsigned int N_didy = 0;      // record initial # of particles within radius of Didymos
-  unsigned int N_dimor = 0;     // record initial # of particles within radius of Dimorphos
-  unsigned int N_hill = 0;      // record initial # of particles farther than Hill radius
+	unsigned int N_particles = 4; // current number of particles (didy, dimor, sun, earth)
+	unsigned int N_scanned = 0;   // record how many particles scanned in the input particle file
+	unsigned int N_didy = 0;      // record initial # of particles within radius of Didymos
+	unsigned int N_dimor = 0;     // record initial # of particles within radius of Dimorphos
+	unsigned int N_hill = 0;      // record initial # of particles farther than Hill radius
 
   // Dust particles
   if (1){
@@ -294,11 +294,11 @@ int main(int argc, char* argv[]){
     fclose(f_dp);
   }
 
-  fprintf(stdout, "Total # of particles scanned: %i\n", N_scanned);
-  fprintf(stdout, "Total # of particles registered: %i\n", N_particles);
-  fprintf(stdout, "# of particles within Didymos: %i\n", N_didy);
-  fprintf(stdout, "# of particles within Dimorphos: %i\n", N_dimor);
-  fprintf(stdout, "# of particles outside of Hill radius: %i\n", N_hill);
+	fprintf(stdout, "Total # of particles scanned: %i\n", N_scanned);
+	fprintf(stdout, "Total # of particles registered: %i\n", N_particles);
+	fprintf(stdout, "# of particles within Didymos: %i\n", N_didy);
+	fprintf(stdout, "# of particles within Dimorphos: %i\n", N_dimor);
+	fprintf(stdout, "# of particles outside of Hill radius: %i\n", N_hill);
 
 	system("rm -v particles.txt");
 	system("rm -v collide.txt");
@@ -530,6 +530,8 @@ void heartbeat(struct reb_simulation* r){
 		reb_simulation_move_to_DidyDimor_com(r);
 		//reb_simulation_move_to_hel(r);
 		//reb_move_to_Didymos(r);
+
+		reb_simulation_output_dt(r, tmax, "dt_history.csv");
 	}
     
 	//  output all particles
@@ -540,7 +542,7 @@ void heartbeat(struct reb_simulation* r){
 
 		reb_simulation_output_timing(r, tmax);
 		printf("\n");
-		
+
 		// output particle position and velocity
 		FILE* fp = fopen("particles.txt","ab+");
 		if ( fp == NULL){
