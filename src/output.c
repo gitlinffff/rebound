@@ -332,7 +332,7 @@ int reb_simulation_output_screenshot(struct reb_simulation* r, const char* filen
     return 0;
 }
 
-void reb_simulation_output_dt(struct reb_simulation* r, const double tmax, const char* filename){
+void reb_simulation_output_dt(struct reb_simulation* r, const double tmax, double dt_minimum, const char* filename){
 	int N_tot = r->N;
 
 	// Open file in append mode
@@ -347,12 +347,12 @@ void reb_simulation_output_dt(struct reb_simulation* r, const double tmax, const
 	// If file is empty, print header
 	static int header_written = 0;
 	if (!header_written){
-		fprintf(f_dt, "N_tot,t,dt,t/tmax%%\n");
+		fprintf(f_dt, "N_tot, t, dt, dt_minimum, t/tmax%%\n");
 		header_written = 1;
 	}
 
 	// Write values
-	fprintf(f_dt, "%-10d %-15.6f %-15.6f %-8.4f\n", N_tot, r->t, r->dt, r->t/tmax*100.0);
+	fprintf(f_dt, "%-10d %-15.6f %-15.6f %-15.6f %-8.4f\n", N_tot, r->t, r->dt, dt_minimum, r->t/tmax*100.0);
 
 	fclose(f_dt);
 }
