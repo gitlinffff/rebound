@@ -223,9 +223,11 @@ def render_frame_HSTview(frame, dpi=100):
     SBC_rotate_DSB = np.array([[-0.703595792353257, -0.710438191316344, 0.015183454875444],
                               [ 0.702824020343859, -0.692584740738747,  0.16237232930379 ],
                               [-0.104839674791979,  0.124915784491013,  0.986612735258626]])
-    # sky north vector and convert it to 'Didymos System Barycenter' frame
-    sky_north = np.array([0, 0, 1])
-    r_sky_north = np.dot(SBC_rotate_DSB, sky_north.T)
+    # calculate sky north vector in 'Sun Body Center' and 
+    # convert it to 'Didymos System Barycenter' frame
+    obliq_earth = np.deg2rad(23.4392911)
+    sky_north = np.array([0, np.sin(obliq_earth), np.cos(obliq_earth)])
+    r_sky_north = SBC_rotate_DSB @ sky_north
     
     # position vector of Earth (as a proxy of HST)
     r_earth = p_t[3, 1:4]
@@ -324,10 +326,12 @@ def render_single_HSTview_colorgroups(frame, alpha):
     SBC_rotate_DSB = np.array([[-0.703595792353257, -0.710438191316344, 0.015183454875444],
                               [ 0.702824020343859, -0.692584740738747,  0.16237232930379 ],
                               [-0.104839674791979,  0.124915784491013,  0.986612735258626]])
-    # sky north vector and convert it to 'Didymos System Barycenter' frame
-    sky_north = np.array([0, 0, 1])
-    r_sky_north = np.dot(SBC_rotate_DSB, sky_north.T)
-    
+    # calculate sky north vector in 'Sun Body Center' and 
+    # convert it to 'Didymos System Barycenter' frame
+    obliq_earth = np.deg2rad(23.4392911)
+    sky_north = np.array([0, np.sin(obliq_earth), np.cos(obliq_earth)])
+    r_sky_north = SBC_rotate_DSB @ sky_north
+
     # position vector of Earth (as a proxy of HST)
     r_earth = p_t[3, 1:4]
 
