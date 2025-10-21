@@ -1,41 +1,48 @@
-# Extract data at a time slices and save data
+# Extract snapshot data and save data
 import numpy as np
 import os, pickle
 from ReadParticle import read_specific_frame
 
-# data path
-data_rootdir = "/home/linfel/linfel_scratch/rebound_exp/data_high_shortterm_run_BS"
-filenames = [os.path.join(data_rootdir, f"run_{i:03d}", "particles.txt") for i in range(1, 34)]
+# --- Configuration ---
+DATA_ROOTDIR = "/home/linfel/linfel_turbo/rebound_exp/data_high_shortterm_run_BS"
+OUTPUT_DIR = "/home/linfel/linfel_turbo/rebound_exp/snapshot_data/day11.88"
+TARGET_DAY = 11.88
+RUN_NUMBERS = range(1, 34) # Define the run numbers you want to process
 
-# Ensure output directory exists for saving frames
-output_dir = "/home/linfel/linfel_scratch/rebound_exp/data_high_shortterm_run_BS/day1.18"
-os.makedirs(output_dir, exist_ok=True)
 
-# specify time
-target_day = 1.18
-target_seconds = target_day * 86400.
+def main():
+	# Calculate target time in seconds
+	target_seconds = TARGET_DAY * 86400.
 
-i = 1
-for file in filenames:
-	# Read particle data
-	Np, time, r_dust, data_p = read_specific_frame(file, target_seconds)
+	# Ensure output directory exists for saving frames
+	os.makedirs(OUTPUT_DIR, exist_ok=True)
+	print(f"Output will be saved to: {OUTPUT_DIR}")
 
-	# Create a dictionary with the data
-	save_data = {
-		"day": time / 86400.,
-		"Np": Np,
-		"radius_dust": r_dust,
-		"p_t": data_p
-	}
+	# Loop over the run numbers for consistency
+	for run_idx in RUN_NUMBERS:
+		input_file = os.path.join(DATA_ROOTDIR, f"run_{run_idx:03d}", "particles.txt")
 
-	# Create output filename based on dust radius or file index
-	output_name = os.path.join(output_dir, f"particle_{i:03d}_day{target_day:.2f}.pkl")
+		if not os.path.exists(input_file):
+			print(f"Warning: File not found, skipping: {input_file}")
+			continue
 
-	# Save using pickle
-	with open(output_name, 'wb') as f:
-		pickle.dump(save_data, f)
+		Np, time, r_dust, data_p = read_specific_frame(input_file, target_seconds)
+	
+		# Create a dictionary with the data
+		save_data = {
+			"day": time / 86400.,
+			"Np": Np,
+			"radius_dust": r_dust,
+			"p_t": data_p
+		}
 
-	# Optional: clean up memory
-	del data_p
+		output_name = os.path.join(OUTPUT_DIR, f"particle_{run_idx:03d}_day{TARGET_DAY:.2f}.pkl")
 
-	i = i + 1
+		# Save the dictionary using pickle
+		with open(output_name, 'wb') as f:
+				pickle.dump(save_data, f)
+		
+		print(f"  -> Successfully saved to {output_name}")
+
+if __name__ == "__main__":
+	main()
