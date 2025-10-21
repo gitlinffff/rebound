@@ -11,18 +11,19 @@ from ReadParticle import read_particle_frames
 from frame_renderer import init_worker, render_single_HSTview_colorgroups
 
 # data path
-data_rootdir = "/home/linfel/linfel_data/ejecta_exp_adjust_size_distri_1/day131.29_pkl"
-filenames = [os.path.join(data_rootdir, f"particle_{i:03d}_day131.29.pkl") for i in range(1, 22)]
+data_rootdir = "/home/linfel/linfel_turbo/rebound_exp/snapshot_data/day11.88"
+filenames = [os.path.join(data_rootdir, f"particle_{i:03d}_day11.88.pkl") for i in [1,11,21,31,40,50]]
 
 # Ensure output directory exists for saving frames
-output_dir = "/home/linfel/linfel_data/ejecta_exp_adjust_size_distri_1/postprocess/plot_d131.29"
+output_dir = "/home/linfel/linfel_turbo/rebound_exp/plots/plots_day11.88"
 os.makedirs(output_dir, exist_ok=True)
 
 """HST view of particles in all sizes"""
 # Set parameters
-day = 131.29                # set the day to plot
+day = 11.88                # set the day to plot
 #axis_lims = [-10000e3, 35000e3, -5000e3, 2000e3]    # m
-axis_lims = [-28799e3, 28799e3, -28799e3, 28799e3]    # m
+#axis_lims = [-28799e3, 28799e3, -28799e3, 28799e3]    # m
+axis_lims = [-600e3, 600e3, -600e3, 600e3]
 alpha = 0.05                # transparency of the plotted points
 N_datasets = len(filenames)
 sid = 4  # starting index of dusts (0-3 are Didymos, Dimorphos, Sun, Earth)
@@ -45,11 +46,11 @@ for i in range(N_datasets):
     with open(filenames[i], 'rb') as f:
         data = pickle.load(f)
         p_t = data['p_t']
-        radii_dust = data['radii_dust']
+        radius_dust = data['radius_dust']
         day = data['day']
         
     # set group label
-    group_labels[i+1] = [f"{radii_dust:.4f}", '#{:02x}{:02x}{:02x}'.format(
+    group_labels[i+1] = [f"{radius_dust:.2e}", '#{:02x}{:02x}{:02x}'.format(
         int(colors[i][0] * 255),
         int(colors[i][1] * 255),
         int(colors[i][2] * 255))]
