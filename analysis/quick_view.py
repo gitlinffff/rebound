@@ -4,32 +4,23 @@ Quick plot top view, HST view and side view
 
 import os
 import numpy as np
-from ReadParticle import read_particle_frames
+from ReadParticle import read_specific_frame
 from frame_renderer import init_worker, render_frame_topview, render_frame_HSTview, render_frame_sideview
 
 def quickview_3(data_path, output_dir = '.', target_days=None, axis_lim=3e3):
 	# Read particle data
-	Np_seq, time, r_dust, data_p = read_particle_frames(data_path)
-
+	target_seconds = np.array(target_days) * 86400.
+	Np, time, r_dust, data_p = read_specific_frame(data_path, target_seconds)
+	
 	# Ensure output directory exists for saving frames
 	os.makedirs(output_dir, exist_ok=True)
 	
-	if target_days is None:
-		target_seconds = time
-	else:
-		target_seconds = np.array(target_days) * 86400.0
-    
-	t_idx = np.searchsorted(time, target_seconds, side="left")
-    
-	if np.isscalar(axis_lim):
-		axis_lim = [axis_lim] * len(t_idx)
-        
-	for i in range(len(t_idx)):
+	for i in range(len(time)):
 		init_worker(data_p, time, axis_lim[i], output_dir)
-
-		render_frame_topview(t_idx[i])
-		render_frame_sideview(t_idx[i])
-		render_frame_HSTview(t_idx[i])
+		
+		render_frame_topview(i)
+		render_frame_sideview(i)
+		render_frame_HSTview(i)
     
 if __name__ == "__main__":
 	DATA_ROOTDIR = "/home/linfel/linfel_turbo/rebound_exp/data_high_shortterm_run_BS"

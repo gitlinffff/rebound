@@ -77,6 +77,9 @@ def read_particle(file_particle, file_collide):
 	return Np_seq, time, N_colDidy, N_colDimor, N_escape, r_dust, particle_all, data_c, data_p
 
 def read_particle_frames(file_particle):
+	"""
+	Reads all frames in the particle file
+	"""
 	# Initialize lists to hold data
 	Np_seq = []  # time sequence of the number of particles 
 	time = []
@@ -112,27 +115,36 @@ def read_specific_frame(file_particle, target_seconds):
 
 	Args:
 			file_particle (str): Path to the binary file.
-			target_seconds (float): The target time to find in the file.
+			target_seconds (float or list[float]): One or more target times (seconds).
 
 	Returns:
-			number of particles, time, r_dust, the data for the target frame,
+			dict: {target_time: (Np, time, r_dust, data)} for each target,
 			or None if no suitable frame is found.
 	"""
+	target_seconds = sorted(target_seconds)  # ensure ascending order
+	
+	Np, time, data_p = [], [], []
+	tidx = 0
+	n_targets = len(target_seconds)
+	
 	with open(file_particle, 'rb') as file:
-		while True:
+		while tidx < n_targets:
 			try:
 				# Read the metadata for the current frame
 				Np_current = struct.unpack('i', file.read(4))[0]
 				time_current = struct.unpack('d', file.read(8))[0]
 
 				# If this frame's time is at or after our target...
-				if time_current >= target_seconds:
+				if time_current >= target_seconds[tidx]:
 					# This is our frame. Read the rest of its data.
 					r_dust = struct.unpack('d', file.read(8))[0]
 					data_current = np.fromfile(file, dtype=np.double, count=7*Np_current).reshape((Np_current, 7))
-
 					print(f"file {file_particle}    Time frame t={time_current} processing completed!", flush=True)
-					return Np_current, time_current, r_dust, data_current
+					# Save result to lists and move to next target
+					Np.append(Np_current)
+					time.append(time_current)
+					data_p.append(data_current)
+					tidx += 1
 
 				else:
 					# Skip the large data block.
@@ -142,6 +154,5 @@ def read_specific_frame(file_particle, target_seconds):
 			except (struct.error, EOFError):
 				# This handles cases where the file ends unexpectedly.
 				break
-
-	# If the loop finishes, no suitable time was found in the file.
-	return None
+	
+	return Np, time, r_dust, data_p
