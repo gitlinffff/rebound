@@ -4,10 +4,12 @@ import os, pickle
 from ReadParticle import read_specific_frame
 
 # --- Configuration ---
-DATA_ROOTDIR = "/home/linfel/linfel_turbo/rebound_exp/data_high_shortterm_run_BS"
-OUTPUT_DIR = "/home/linfel/linfel_turbo/rebound_exp/snapshot_data/day11.88"
-TARGET_DAY = 11.88
-RUN_NUMBERS = range(1, 34) # Define the run numbers you want to process
+DATA_ROOTDIR = "/home/linfel/linfel_scratch/rebound_exp/data_high_longterm_run_034-050"
+OUTPUT_DIR = "/home/linfel/linfel_scratch/rebound_exp/data_high_longterm_run_034-050/snapshot_data"
+TARGET_DAY = np.array([64.44, 78.65, 83.77, 92.66, 114.75,
+                       131.29, 153.47, 155.31, 177.46, 198.9, 230.39])
+#RUN_NUMBERS = range(17,34) # Define the run numbers you want to process
+RUN_NUMBERS = range(34,38) # Define the run numbers you want to process
 
 
 def main():
@@ -16,7 +18,7 @@ def main():
 
 	# Ensure output directory exists for saving frames
 	os.makedirs(OUTPUT_DIR, exist_ok=True)
-	print(f"Output will be saved to: {OUTPUT_DIR}")
+	print(f"Output directory: {OUTPUT_DIR}\n")
 
 	# Loop over the run numbers for consistency
 	for run_idx in RUN_NUMBERS:
@@ -36,13 +38,15 @@ def main():
 			"p_t": data_p
 		}
 
-		output_name = os.path.join(OUTPUT_DIR, f"particle_{run_idx:03d}_day{TARGET_DAY:.2f}.pkl")
+		#output_name = os.path.join(OUTPUT_DIR, f"particle_{run_idx:03d}_day{TARGET_DAY:.2f}.pkl")
+		output_name = os.path.join(OUTPUT_DIR, f"{run_idx:03d}_snapshots.pkl")
 
 		# Save the dictionary using pickle
 		with open(output_name, 'wb') as f:
 				pickle.dump(save_data, f)
 		
-		print(f"  -> Successfully saved to {output_name}")
+		print(f"-> Successfully saved to {output_name}\n")
+		del Np, time, r_dust, data_p, save_data
 
 if __name__ == "__main__":
 	main()
