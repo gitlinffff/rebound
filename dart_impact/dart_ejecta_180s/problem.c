@@ -479,19 +479,42 @@ void reb_simulation_move_to_DidyDimor_com(struct reb_simulation* const r){
 
 
 void heartbeat(struct reb_simulation* r){
-  // track minimum dt
+//----------------track minimum dt--------------------
 	if (r->dt < dt_minimum){
 		dt_minimum = r->dt;
 	}
 	
-	// output dt to file
+//----------------output dt to file------------------
 	if(reb_simulation_output_check(r, 60.0)){
-		reb_simulation_output_dt(r, tmax, dt_minimum, "dt_history.csv");
+		int N_tot = r->N;
+
+		// Open file in append mode
+		char filename[20] = "dt_history.csv";
+		FILE* f_dt = fopen(filename, "a");
+		if (f_dt == NULL) {
+			char error_msg[50];
+			sprintf(error_msg, "Could not open file: %s", filename);
+			reb_simulation_error(r, error_msg);
+			return;
+		}
+
+		// If file is empty, print header
+		static int header_written = 0;
+		if (!header_written){
+			fprintf(f_dt, "N_tot, t, dt, dt_minimum, t/tmax%%\n");
+			header_written = 1;
+		}
+
+		// Write values
+		fprintf(f_dt, "%-10d %-15.6f %-15.6f %-15.6f %-8.4f\n", N_tot, r->t, r->dt, dt_minimum, r->t/tmax*100.0);
+
+		fclose(f_dt);
+		
 		// reset dt_minimum
 		dt_minimum = 1.e15;
 	}
 	
-	// remove collided particles
+//----------------remove collided particles-----------------
 	if(reb_simulation_output_check(r, 60.0)){  
 		// In reality, dt is larger than 60 s. This chunk of code is executed every time steps
 
@@ -542,7 +565,7 @@ void heartbeat(struct reb_simulation* r){
 		//reb_move_to_Didymos(r);
 	}
     
-	//  output all particles
+//----------------output all particles---------------------
 	if(reb_simulation_output_check(r, 3600.0)){
 		struct reb_particle* particles = r->particles;
 		const int N = r->N;
@@ -575,7 +598,8 @@ void heartbeat(struct reb_simulation* r){
 		fclose(fp);
  }
     
-	//  output orbital parameters of particles relative to the com of Didymos and Dimorphos system
+//----------------output orbital parameters--------------------
+//particles orbits relative to barycenter of binary system
 	if(reb_simulation_output_check(r, 4320000.0)){
 		struct reb_particle* particles = r->particles;
 		const struct reb_particle Didymos = particles[0];
