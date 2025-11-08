@@ -1,12 +1,15 @@
 import os
 import datetime
 import struct
+import subprocess
+import re
 import matplotlib.pyplot as plt
 
 
 def get_runtime(parent_dir = "."):
     results = {}
-
+    pattern = re.compile(r"t/tmax=\s*([0-9.]+%)") # search pattern "t/tmax" in the log file
+	
     for folder in sorted(os.listdir(parent_dir)):
         if folder.startswith("run_") and os.path.isdir(os.path.join(parent_dir, folder)):
             run_path = os.path.join(parent_dir, folder)
@@ -34,23 +37,42 @@ def get_runtime(parent_dir = "."):
                     except struct.error:
                         continue
 
+                # --- Extract t/tmax info the system log file ---
+                progress = None
+                # Find the file with ".out." in name
+                out_files = [f for f in os.listdir(run_path) if ".out." in f]
+                if out_files:
+                    # pick the latest modified one
+                    out_files.sort(key=lambda f: os.path.getmtime(os.path.join(run_path, f)), reverse=True)
+                    latest_out = os.path.join(run_path, out_files[0])
+
+                    try:
+                        output = subprocess.check_output(["tail", "-n", "2", latest_out], text=True)
+                        match = pattern.findall(output)
+                        if match:
+                            progress = match[-1]
+                    except subprocess.CalledProcessError:
+                        pass
+
                 results[folder] = {
                     "start": dt1,
                     "end": dt2,
                     "duration": duration,
                     "N_particle": Np_t0,
-                    "r_dust": r_dust
+                    "r_dust": r_dust,
+                    "t_tmax": progress
                 }
     
     # --- print results ---
     for folder, info in results.items():
         print(f"[{folder}]")
+        print(f"  r_dust    : {info['r_dust']:.3e}")
+        print(f"  N_particle: {info['N_particle']}")
         print(f"  Start     : {info['start']}")
         print(f"  End       : {info['end']}")
         print(f"  Duration  : {info['duration']:.2f} minutes")
-        print(f"  N_particle: {info['N_particle']}")
-        print(f"  r_dust    : {info['r_dust']:.3e}\n")
-                            
+        print(f"  t/tmax    : {info['t_tmax']}\n")
+
     return results
 
 def plot_runtime_vs_rdust(results, output_dir = "."):
