@@ -124,6 +124,12 @@ const double T33 = 0.986612735258626;
 // parameter tracking minimum dt within output interval
 double dt_minimum = 1.e15;
 
+// define output timing
+static const double output_times[] = {64.44, 78.65, 83.77, 92.66, 114.75, 131.29, 153.47, 155.31, 177.46, 198.9, 230.39};
+static int output_i = 0;
+static double next_output_t = 64.44 * 86400.;
+static const int max_index = 10; //number of output times - 1
+
 int main(int argc, char* argv[]){
 	
 	// Parse command-line arguments
@@ -489,7 +495,7 @@ void heartbeat(struct reb_simulation* r){
 		dt_minimum = r->dt;
 	}
 	
-//----------------output dt to file------------------
+//----------------output dt history-------------------
 	if(reb_simulation_output_check(r, 60.0)){
 		int N_tot = r->N;
 
@@ -571,7 +577,7 @@ void heartbeat(struct reb_simulation* r){
 	}
     
 //----------------output all particles---------------------
-	if(reb_simulation_output_check(r, 3600.0)){
+	if(reb_simulation_output_check(r, next_output_t)){
 		struct reb_particle* particles = r->particles;
 		const int N = r->N;
 		double di;
@@ -601,6 +607,16 @@ void heartbeat(struct reb_simulation* r){
 			fwrite( &(p.vz), sizeof(double), 1, fp);
 		}
 		fclose(fp);
+		
+		// Update next output time only when the r->t passes the next target time
+		if (r->t >= next_output_t && output_i <= max_index) {
+			output_i++;
+			if (output_i <= max_index) {
+				next_output_t = output_times[output_i] * 86400.;
+			} else{
+				next_output_t = tmax * 10.;
+			}
+		}
  }
     
 //----------------output orbital parameters--------------------
