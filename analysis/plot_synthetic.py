@@ -5,11 +5,14 @@ from ReadParticle import read_particle_frames
 import miepython as mie
 
 # data path
-data_rootdir = "/home/linfel/linfel_turbo/rebound_exp/snapshot_data/day11.88"
-filenames = [os.path.join(data_rootdir, f"particle_{i:03d}_day11.88.pkl") for i in [1,11,21,31,40,50]]
+data_rootdir = "/home/linfel/linfel_scratch/rebound_exp/data_high_longterm_run_001-033/snapshot_data"
+filenames1 = [os.path.join(data_rootdir, f"{i:03d}_snapshots.pkl") for i in range(18,34)]
+data_rootdir = "/home/linfel/linfel_scratch/rebound_exp/data_high_longterm_run_034-050/snapshot_data"
+filenames2 = [os.path.join(data_rootdir, f"{i:03d}_snapshots.pkl") for i in range(34,44)]
+filenames = filenames1 + filenames2
 
 # Ensure output directory exists for saving frames
-output_dir = "/home/linfel/linfel_turbo/rebound_exp/plots/plots_day11.88"
+output_dir = "/home/linfel/linfel_scratch/rebound_exp/data_high_longterm_run_001-033/plots/plots_day64.44"
 os.makedirs(output_dir, exist_ok=True)
 
 # matrix convert vector from 'Sun Body Center' to 'Didymos System Barycenter'
@@ -29,7 +32,7 @@ lambda0 = 500e-9  # wavelength in vacuum (m)
 
 # pixel dimension parameters
 #axlims = [-28000e3, 28000e3, -28000e3, 28000e3] # axis range [x_min, x_max, y_min, y_max] (m)
-axlims = [-600e3, 600e3, -600e3, 600e3]
+axlims = [-40000e3, 40000e3, -40000e3, 40000e3]
 nx = 4000  # number of bins in x axis
 ny = 4000   # number of bins in y axis
 xedges = np.linspace(axlims[0], axlims[1], nx + 1)
@@ -40,12 +43,12 @@ total_inten = np.zeros((nx, ny)) + 1e-20
 
 for file in filenames:
     # Read particle data
-    print(f"processing {file} ......", flush=True)
     with open(file, 'rb') as f:
         data = pickle.load(f)
-        p_t = data['p_t']
+        p_t = data['p_t'][0]
         radius_dust = data['radius_dust']
-        day = data['day']
+        day = data['day'][0]
+    print(f"Using data **{file.split('/')[-1]}**, day={day}, radius={radius_dust}", flush=True)
 
     # position vector
     r_sun = p_t[2, 1:4]    # [x, y, z] of the Sun
@@ -122,7 +125,7 @@ cbar.set_label(r'$\log_{10}$(Nondimensional Intensity)')
 
 plt.tight_layout()
 
-output_name = os.path.join(output_dir, f"day11.88_intensity_1.png")
+output_name = os.path.join(output_dir, f"day64.44_synt_1.png")
 #output_name = os.path.join(output_dir, f"tail_synt_wt1.png")
 plt.savefig(output_name, dpi=300, bbox_inches='tight', pad_inches=0.1)
 plt.close()
