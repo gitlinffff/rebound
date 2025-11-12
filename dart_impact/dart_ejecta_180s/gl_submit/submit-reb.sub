@@ -1,0 +1,36 @@
+#!/bin/bash
+
+#SBATCH --time=336:00:00
+#SBATCH --job-name={{JOBID}}
+#SBATCH --account=chengcli98
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=34
+#SBATCH --mail-user=linfel@umich.edu
+#SBATCH --mail-type=BEGIN,END,FAIL
+#SBATCH -o %x.out.%j  # STDOUT
+#SBATCH -e %x.err.%j  # STDERR
+
+# load modules
+#module restore
+
+# change the working directory
+echo Working directory is $SLURM_SUBMIT_DIR
+
+# write job information
+echo Running on hosts $SLURM_NODELIST
+echo Running on hosts $SLURM_JOB_NODELIST
+echo Running job $SLURM_JOB_NAME
+echo Running on $SLURM_NNODES nodes
+echo Running on $SLURM_NPROCS processors
+echo Time submitted: `date`
+
+NODES=$SLURM_NNODES
+NP=$SLURM_NPROCS
+PPN=$SLURM_NTASKS_PER_NODE
+
+# MPI info
+#echo MPI Used: `which mpirun`
+echo This job has allocated $SLURM_NPROCS cpus on $SLURM_JOB_NUMNODES nodes
+
+./rebound -n 34 -r {{RDUST}} -qpr 1.0 -t 17280000. -f /home/linfel/linfel_scratch/Ejecta/data_high_shifted.txt
