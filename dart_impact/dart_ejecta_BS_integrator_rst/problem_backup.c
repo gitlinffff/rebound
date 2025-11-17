@@ -138,6 +138,8 @@ int main(int argc, char* argv[]){
 			num_threads = atoi(argv[++i]);
 		} else if (strcmp(argv[i], "-r") == 0 && i + 1 < argc) {
 			r_dust = atof(argv[++i]);
+		} else if (strcmp(argv[i], "-bseps") == 0 && i + 1 < argc) {
+			bs_eps = atof(argv[++i]);
 		} else if (strcmp(argv[i], "-qpr") == 0 && i + 1 < argc) {
 			Q_pr = atof(argv[++i]);
 		} else if (strcmp(argv[i], "-t") == 0 && i + 1 < argc) {
@@ -146,51 +148,42 @@ int main(int argc, char* argv[]){
 			strncpy(fpath, argv[++i], sizeof(fpath));
 			fpath[sizeof(fpath) - 1] = '\0'; // null-terminate safely
 		} else {
-			fprintf(stderr, "Usage: %s -n <num_threads> -r <r_dust> -qpr <Q_pr> -t <tmax> -f <rst_archive>\n", argv[0]);
+			fprintf(stderr, "Usage: %s -n <num_threads> -r <r_dust> -bseps <bs_eps> -qpr <Q_pr> -t <tmax> -f <input_file>\n", argv[0]);
 			return 1;
 		}
 	}
 	printf("Running with %d OpenMP threads\n", num_threads);
 	printf("Running with r_dust = %e\n", r_dust);
 	printf("Running with Q_pr = %e\n", Q_pr);
+	printf("Running with BS integrator tolerance = %e\n", bs_eps);
 	printf("Running with tmax = %f\n", tmax);
-	printf("Restarting with archive file: %s\n", fpath);
+	printf("Running with dust input file = %s\n", fpath);
 
 	// Set the number of OpenMP threads to be the number of processors
 	//int np = omp_get_num_procs();
 	omp_set_num_threads(num_threads);
 	
 	// restart from the last snapshot
-	struct reb_simulationarchive* archive = reb_simulationarchive_create_from_file(fpath);// "archive.bin"
+	struct reb_simulationarchive* archive = reb_simulationarchive_create_from_file("archive.bin");
 	struct reb_simulation* r = reb_simulation_create_from_simulationarchive(archive, -1); // the last snapshot
 	reb_simulationarchive_free(archive);
-
-	// print restarting information
-	printf("===========================\nRestarting information:\n");
-	printf("t: %f\n", r->t);
-	printf("dt: %f\n", r->dt);
-	printf("N_active: %d\n", r->N_active);
-	printf("G: %e\n", r->G);
-	printf("BS integrator tolerance: %e, %e\n", r->ri_bs.eps_rel, r->ri_bs.eps_abs);
-	printf("integrator = %d\n", r->integrator);
-	struct reb_particle* particles = r->particles;
-	const struct reb_particle p = particles[4];
-	printf("p.r: %e\n", p.r);
-	if (p.r != r_dust){
-		reb_simulation_error(r, "r_dust doesn't match with archive.");// also need to print to the log file
-	}
-
-	// Reset function pointers:
+	// Setup constants
+	r->integrator          = REB_INTEGRATOR_BS;
+	r->ri_bs.eps_rel       = bs_eps;
+	r->ri_bs.eps_abs       = bs_eps;
+	r->dt                  = 1e1;    // Initial timestep, s
+	r->N_active            = 3;     // Only the Sun and the Didymos-Dimorphos system are massive, the dust particles are treated as test particles
 	r->additional_forces   = force_radiation;
 	r->heartbeat           = heartbeat;
-	exit(0);
+	r->G                   = G_const;
 
 	// --- LOGIC TO RESTART OUTPUT TIMING ---
-	printf("Restarting from simulation time: %.3f days (%.3e seconds)\n", r->t/86400., r->t);
+	double current_time_days = r->t / 86400.0;
+	printf("Restarting from simulation time: %.3f days (%.3e seconds)\n", current_time_days, r->t);
 
 	// Find the next output time index (output_i)
 	for (int i = 0; i <= max_index; i++) {
-		if (output_times[i]*86400. > r->t) {
+		if (output_times[i] > current_time_days) {
 			output_i = i;
 			next_output_t = output_times[i] * 86400.0;
 			printf("Resuming output from index: %d\n", output_i);
@@ -207,7 +200,6 @@ int main(int argc, char* argv[]){
 		next_output_t = tmax * 10.0; 
 	}
 
-	exit(0);
 	reb_simulation_save_to_file_interval(r, "archive.bin", 864000.); // save for restart. 10 days between snapshots
 	reb_simulation_integrate(r, tmax);
 	fprintf(stdout, "\n");
