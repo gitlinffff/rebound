@@ -11,11 +11,11 @@ from ReadParticle import read_particle_frames
 from frame_renderer import init_worker, render_single_HSTview_colorgroups
 
 # data path
-data_rootdir = "/home/linfel/linfel_scratch/rebound_exp/data_high_longterm_run_001-033/snapshot_data"
-filenames = [os.path.join(data_rootdir, f"{i:03d}_snapshots.pkl") for i in range(18,34)]
+data_rootdir = "/home/linfel/linfel_turbo/rebound_exp/data_high_longterm_snapshot_data"
+filenames = [os.path.join(data_rootdir, f"{i:03d}_snapshots.pkl") for i in range(30,44)]
 
 # Ensure output directory exists for saving frames
-output_dir = "/home/linfel/linfel_scratch/rebound_exp/data_high_longterm_run_001-033/plots/plots_day64.44"
+output_dir = "/home/linfel/linfel_turbo/rebound_exp/plots/plots_day64.44"
 os.makedirs(output_dir, exist_ok=True)
 
 """HST view of particles in all sizes"""
