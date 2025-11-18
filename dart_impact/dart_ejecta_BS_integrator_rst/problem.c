@@ -125,10 +125,15 @@ const double T33 = 0.986612735258626;
 double dt_minimum = 1.e15;
 
 // define output timing
-static const double output_times[] = {64.44, 78.65, 83.77, 92.66, 114.75, 131.29, 153.47, 155.31, 177.46, 198.9, 230.39};
+//static const double output_days[] = {0.0, 64.44, 78.65, 83.77, 92.66, 114.75, 131.29, 153.47, 155.31, 177.46, 198.9, 230.39};
+static const double output_days[] = {0.0, 0.01, 0.03, 0.05, 0.09, 0.1};
+
+#define NUM_OUTPUTS (sizeof(output_days) / sizeof(output_days[0]))
+static const int num_outputs = NUM_OUTPUTS;
+static double output_sec[NUM_OUTPUTS];
+static const int max_index = num_outputs - 1;
 static int output_i = 0;
-static double next_output_t = 64.44 * 86400.;
-static const int max_index = 10; //number of output times - 1
+static double next_output_t = 0.;
 
 int main(int argc, char* argv[]){
 	
@@ -151,10 +156,16 @@ int main(int argc, char* argv[]){
 		}
 	}
 	printf("Running with %d OpenMP threads\n", num_threads);
-	printf("Running with r_dust = %e\n", r_dust);
+	printf("Running with r_dust = %.8e\n", r_dust);
 	printf("Running with Q_pr = %e\n", Q_pr);
-	printf("Running with tmax = %f\n", tmax);
-	printf("Restarting with archive file: %s\n", fpath);
+	printf("Running with tmax = %.2f\n", tmax);
+	printf("Restarting with archive: %s\n", fpath);
+
+	// Convert all output_days to seconds
+	for (int i = 0; i <= max_index; i++) {
+		output_sec[i] = output_days[i] * 86400.0;
+	}
+	next_output_t = output_sec[0];
 
 	// Set the number of OpenMP threads to be the number of processors
 	//int np = omp_get_num_procs();
@@ -175,40 +186,42 @@ int main(int argc, char* argv[]){
 	printf("integrator = %d\n", r->integrator);
 	struct reb_particle* particles = r->particles;
 	const struct reb_particle p = particles[4];
-	printf("p.r: %e\n", p.r);
+	printf("p.r: %.8e\n", p.r);
 	if (p.r != r_dust){
-		reb_simulation_error(r, "r_dust doesn't match with archive.");// also need to print to the log file
+    char error_msg[70];
+    sprintf(error_msg, "r_dust %.8e does not match with archive %.8e", r_dust, p.r);
+    reb_simulation_error(r, error_msg);
+		return 1;
 	}
 
 	// Reset function pointers:
 	r->additional_forces   = force_radiation;
 	r->heartbeat           = heartbeat;
-	exit(0);
 
 	// --- LOGIC TO RESTART OUTPUT TIMING ---
-	printf("Restarting from simulation time: %.3f days (%.3e seconds)\n", r->t/86400., r->t);
+	printf("Restarting from simulation time: %.2f days (%.2f seconds)\n", r->t/86400., r->t);
 
 	// Find the next output time index (output_i)
 	for (int i = 0; i <= max_index; i++) {
-		if (output_times[i]*86400. > r->t) {
+		if (output_sec[i] > r->t) {
 			output_i = i;
-			next_output_t = output_times[i] * 86400.0;
+			next_output_t = output_sec[i];
 			printf("Resuming output from index: %d\n", output_i);
-			printf("The next scheduled output time is: %.3f days (%.3e seconds)\n", 
-						 output_times[i], next_output_t);
+			printf("The next scheduled output time is: %.2f days (%.2f seconds)\n", 
+						 output_sec[i], next_output_t);
 			break; // Stop when the next future time is found
 		}
 	}
-
-	// Handle the case where the simulation ran past the last defined output time
-	if (output_i > max_index) {
-		printf("All defined output times (up to %.2f days) have been passed.\n", output_times[max_index]);
-		// Set next_output_t to a value greater than tmax to effectively disable outputs based on the array
+	// Handle the case where the simulation ran past the last defined output time  //
+	// still some problem here
+	if (r->t > output_sec[max_index]) {
+		printf("All defined output times (up to %.2f seconds) have been passed.\n", output_sec[max_index]);
+		// Set next_output_t to a large value to disable outputs
 		next_output_t = tmax * 10.0; 
 	}
 
-	exit(0);
-	reb_simulation_save_to_file_interval(r, "archive.bin", 864000.); // save for restart. 10 days between snapshots
+	// start integration
+	reb_simulation_save_to_file_interval(r, "archive1.bin", 2000.); // save for restart. 10 days between snapshots
 	reb_simulation_integrate(r, tmax);
 	fprintf(stdout, "\n");
 }
@@ -509,7 +522,7 @@ void heartbeat(struct reb_simulation* r){
 		if (r->t >= next_output_t && output_i <= max_index) {
 			output_i++;
 			if (output_i <= max_index) {
-				next_output_t = output_times[output_i] * 86400.;
+				next_output_t = output_sec[output_i];
 			} else{
 				next_output_t = tmax * 10.;
 			}
