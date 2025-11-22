@@ -1,6 +1,7 @@
 import os, pickle
 import numpy as np
 from astropy.io import fits
+from scipy.optimize import least_squares
 import miepython as mie
 import matplotlib.pyplot as plt
 from coordinates import position_dict
@@ -55,7 +56,7 @@ def process_hst(hst_file, day_code, output_dir):
 	plt.tight_layout()
 
 	plt.savefig(os.path.join(output_dir, f'hst_image_{day_code}.png'), dpi=300, bbox_inches='tight')
-	plt.show()
+	#plt.show()
 	plt.close()
 
 	return hst_data, log10_hst, x_km, y_km
@@ -80,6 +81,7 @@ def process_simu_intensity(simu_data_dir, RUN_NUMBERS, x_km, y_km):
 	yedges = y_km * 1e3
 
 	inten_sets = []
+	rlist = []
 	# process every dataset
 	for run_idx in RUN_NUMBERS:
 		file = os.path.join(simu_data_dir, f"{run_idx:03d}_snapshots.pkl")
@@ -147,17 +149,186 @@ def process_simu_intensity(simu_data_dir, RUN_NUMBERS, x_km, y_km):
 		px_inten = px_inten.T
 
 		inten_sets.append(px_inten)
+		rlist.append(radius_dust)
 
 	sim_stack = np.stack(inten_sets, axis=-1)            # shape: (ny, nx, n_sizes)
-	return sim_stack
+	return sim_stack, np.array(rlist)
+
+def residuals(weights, I_models, I_obs):
+    # weights can't be negative
+    if np.any(weights < 0):
+        return np.inf
+
+    # calculate weighted values 
+    I_fit = I_models @ weights
+
+    # calculate residuals in log10 space
+    epsilon = 1e-20
+    log_diff = np.log10(I_obs + epsilon) - np.log10(I_fit + epsilon)
+    return log_diff
+
+def fit_weight(simu, obsr):
+	# set fitting input X and Y
+	fit_input_X = simu.reshape(-1, np.shape(simu)[-1])  # shape: (ny*nx, n_sizes)
+	fit_input_Y = obsr.flatten()                        # shape: (ny*nx)
+
+	# create a mask of HST meaningful signal (pixels of background signal 1e-20 are not used for fitting)
+	meaningful_signal_mask = np.log10(fit_input_Y + 1e-20) > -20.0
+
+	# get the meaningful pixels from the HST data and simulated data using the mask
+	fit_input_Y_filtered = fit_input_Y[meaningful_signal_mask]
+	fit_input_X_filtered = fit_input_X[meaningful_signal_mask, :]
+
+	# --- min/max values ---
+	sim_min = np.min(fit_input_X_filtered)
+	sim_max = np.max(fit_input_X_filtered)
+	hst_min = np.min(fit_input_Y_filtered)
+	hst_max = np.max(fit_input_Y_filtered)
+
+	# --- Formatted Print Statement ---
+	# The f-string formatting aligns the text and numbers into clean columns.
+	# :<20 means left-align in a 20-character space.
+	# :>15.2e means right-align in a 15-character space, formatted in scientific notation with 2 decimals.
+	print(f"{'':<20} {'min':>15} {'max':>15}")
+	print("-" * 55) # Optional: adds a separator line for clarity
+	print(f"{'Simulation':<20} {sim_min:>15.2e} {sim_max:>15.2e}")
+	print(f"{'HST Observation':<20} {hst_min:>15.2e} {hst_max:>15.2e}")
+
+	# set initial weights
+	initial_weights = np.array([1.48607575e-01, 2.03574515e-01, 3.44638220e-01, 4.84672084e-01,
+															5.36902768e-01, 5.75193493e-01, 6.08559074e-01, 5.99757568e-01,
+															5.61236310e-01, 4.91978292e-01, 3.86263984e-01, 2.45922593e-01,
+															7.13588707e-09, 7.13588707e-09])
+	
+	# least square fitting
+	result = least_squares(
+			residuals,
+			initial_weights,
+			args=(fit_input_X_filtered, fit_input_Y_filtered)
+	)
+	final_weights = result.x
+
+	# calculate weighed fitting values
+	I_fit = (fit_input_X @ final_weights).reshape(np.shape(simu)[:2])
+
+	return final_weights, I_fit
+
+def fitting_scatterplot(I_fit, obsr, output_dir):
+	x_data = np.log10(I_fit.flatten() + 1e-20)
+	y_data = np.log10(obsr.flatten() + 1e-20)
+
+	# Find the combined min and max for both axes
+	min_val = min(np.min(x_data), np.min(y_data))
+	max_val = max(np.max(x_data), np.max(y_data))
+
+	# Add a little padding to the range
+	padding = (max_val - min_val) * 0.05
+	axis_min = min_val - padding
+	axis_max = max_val + padding
+	axis_limits = [axis_min, axis_max]
+
+	bin_edges = np.linspace(axis_min, axis_max, 251)
+
+	# mask 1: Create a mask to find where both I_fit and observation are at their floor value (1e-20)
+	zero_mask = (x_data <= -20) | (y_data <= -20.0)
+	num_zeros = np.sum(zero_mask)
+	x_data_filtered = x_data[~zero_mask]
+	y_data_filtered = y_data[~zero_mask]
+
+	# create 2D histogram for performance of model fit
+	_den, _, _ = np.histogram2d( # particle density of each pixel
+			x_data_filtered,        # x coordinate
+			y_data_filtered,        # y coordinate
+			bins=[bin_edges, bin_edges],
+			density=False  # Set True if you want normalized density
+	)
+	_den = _den.T
+
+	X, Y = np.meshgrid(bin_edges, bin_edges)
+
+	plt.figure(figsize=(8, 8))
+	pc = plt.pcolormesh(X, Y, _den, cmap='cividis', shading='auto')
+
+	# Draw the y=x reference line
+	plt.plot(axis_limits, axis_limits, 'r--', label='y=x') # 'r--' is a red dashed line
+
+	# colar bar
+	cbar = plt.colorbar(pc, orientation='horizontal', pad=0.1, shrink=0.5, aspect=30)
+	cbar.set_label(r'Number of Points per Bin')
+
+	plt.gca().set_aspect('equal', adjustable='box')
+	plt.xlim(axis_limits)
+	plt.ylim(axis_limits)
+
+	plt.xlabel("Predicted Intensity (log10)")
+	plt.ylabel("Observed Intensity (log10)")
+	plt.title("Model Fit vs. Observation (Density Plot)")
+	plt.legend(loc="lower right")
+	plt.grid(True, linestyle='--', alpha=0.3)
+
+	plt.savefig(os.path.join(output_dir,'modelfit_scatterplot_.png'), dpi=300, bbox_inches='tight')
+	#plt.show()
+	plt.close()
+
+def plot_fitted_image(I_fit, x_km, y_km, output_dir):
+	# Create meshgrid for bin edges
+	X, Y = np.meshgrid(x_km, y_km)   # km
+
+	# Plot pcolormesh
+	plt.figure(figsize=(8, 8))
+
+	log10_fit = np.log10(I_fit + 1e-20)
+	pc = plt.pcolormesh(X, Y, log10_fit, cmap='cividis', shading='auto', vmin=-10, vmax=np.nanmax(log10_fit))
+
+	plt.xlabel('Projected X [km]')
+	plt.ylabel('Projected Y [km]')
+	plt.title('Intensity Fitting on View Plane')
+	plt.grid(True, linestyle='--', linewidth=0.1, color='red', alpha=0.7)
+	plt.gca().set_aspect('equal', adjustable='box')
+
+	# Colorbar
+	cbar = plt.colorbar(pc, orientation='horizontal', pad=0.1, shrink=0.5, aspect=30)
+	cbar.set_label(r'$\log_{10}$(Nondimensional Intensity)')
+
+	plt.tight_layout()
+	output_name = os.path.join(output_dir, "fitted_image.png")
+	plt.savefig(output_name, dpi=300, bbox_inches='tight', pad_inches=0.1)
+	#plt.show()
+	plt.close()
+
+def plot_w_r(radius, weights, output_dir):
+	"""
+	plot fitted weights with dust radius.
+	"""
+	plt.figure(figsize=(8, 6))
+	plt.loglog(radius, weights, 'bo-')
+	plt.plot(np.log(radius), np.log(weights))
+	
+	# Add axis labels that reflect the content
+	plt.xlabel('Particle Radius (m)')
+	plt.ylabel('Fitted Weights')
+	plt.title('Weights vs. Radius')
+	plt.grid(True, which="both", ls="--", linewidth=0.5)
+	plt.savefig(os.path.join(output_dir, "w_r.png"), dpi=300, bbox_inches='tight', pad_inches=0.1)
+	plt.close()
 
 def main():
 	day_code = "day_64.44"
 	output_dir = "/home/linfel/linfel_turbo/rebound_exp/plots"
 	hst_file = "/home/linfel/linfel_turbo/hst_raw_JianyangLi/16674/stack_31_long.fits"
+	os.makedirs(output_dir, exist_ok=True)
+	
 	hst_data, log10_hst, x_km, y_km = process_hst(hst_file, day_code, output_dir)
-
 
 	simu_data_dir = "/home/linfel/linfel_turbo/rebound_exp/data_high_longterm_snapshot_data"
 	RUN_NUMBERS = range(30, 44)
-	process_simu_intensity(simu_data_dir, RUN_NUMBERS, x_km, y_km)
+	sim_stack, radius = process_simu_intensity(simu_data_dir, RUN_NUMBERS, x_km, y_km)
+
+	weights, I_fit = fit_weight(sim_stack, hst_data)
+	fitting_scatterplot(I_fit, hst_data, output_dir)
+	plot_fitted_image(I_fit, x_km, y_km, output_dir)
+	plot_w_r(radius, weights, output_dir)
+	np.savetxt(os.path.join(output_dir, "w_r.csv"), np.array([radius, weights]).T, fmt='%.8e', delimiter=',')
+
+if __name__ == "__main__":
+	main()
