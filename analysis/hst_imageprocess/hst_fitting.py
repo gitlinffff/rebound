@@ -59,7 +59,7 @@ def process_hst(hst_file, day_code, output_dir):
 	#plt.show()
 	plt.close()
 
-	return hst_data, log10_hst, x_km, y_km
+	return hst_data, log10_hst, x_km, y_km, pixel_km
 
 def process_simu_intensity(simu_data_dir, RUN_NUMBERS, x_km, y_km):
 	# matrix convert vector from 'Sun Body Center' to 'Didymos System Barycenter'
@@ -270,7 +270,12 @@ def fitting_scatterplot(I_fit, obsr, output_dir):
 	#plt.show()
 	plt.close()
 
-def plot_fitted_image(I_fit, x_km, y_km, output_dir):
+def plot_fitted_image(I_fit, pixel_km, output_dir):
+	# axes scale
+	ny, nx = I_fit.shape
+	x_km = np.arange(nx+1) * pixel_km
+	y_km = np.arange(ny+1) * pixel_km
+	
 	# Create meshgrid for bin edges
 	X, Y = np.meshgrid(x_km, y_km)   # km
 
@@ -300,35 +305,101 @@ def plot_w_r(radius, weights, output_dir):
 	"""
 	plot fitted weights with dust radius.
 	"""
+	
+	# linear regression (A@x=b)
+	A = np.vstack([np.log(radius), np.ones(len(radius))]).T
+	b = np.log(weights)
+	x = np.linalg.lstsq(A, b, rcond=None)[0] # slope and intercept
+
 	plt.figure(figsize=(8, 6))
-	plt.loglog(radius, weights, 'bo-')
-	plt.plot(np.log(radius), np.log(weights))
+	plt.loglog(radius, weights, 'bo-', label=f'slope={x[0]:.2f}')
 	
 	# Add axis labels that reflect the content
 	plt.xlabel('Particle Radius (m)')
 	plt.ylabel('Fitted Weights')
 	plt.title('Weights vs. Radius')
+	plt.legend()
 	plt.grid(True, which="both", ls="--", linewidth=0.5)
 	plt.savefig(os.path.join(output_dir, "w_r.png"), dpi=300, bbox_inches='tight', pad_inches=0.1)
 	plt.close()
 
-def main():
+def simple_run():
 	day_code = "day_64.44"
-	output_dir = "/home/linfel/linfel_turbo/rebound_exp/plots"
 	hst_file = "/home/linfel/linfel_turbo/hst_raw_JianyangLi/16674/stack_31_long.fits"
+	
+	output_dir = "/home/linfel/linfel_turbo/rebound_exp/plots"
 	os.makedirs(output_dir, exist_ok=True)
 	
+	# process HST image
 	hst_data, log10_hst, x_km, y_km = process_hst(hst_file, day_code, output_dir)
 
+	# calculate intensity from simulation results
 	simu_data_dir = "/home/linfel/linfel_turbo/rebound_exp/data_high_longterm_snapshot_data"
 	RUN_NUMBERS = range(30, 44)
 	sim_stack, radius = process_simu_intensity(simu_data_dir, RUN_NUMBERS, x_km, y_km)
 
+	# fit the weights
 	weights, I_fit = fit_weight(sim_stack, hst_data)
+	
+	# output fitting results
 	fitting_scatterplot(I_fit, hst_data, output_dir)
 	plot_fitted_image(I_fit, x_km, y_km, output_dir)
 	plot_w_r(radius, weights, output_dir)
 	np.savetxt(os.path.join(output_dir, "w_r.csv"), np.array([radius, weights]).T, fmt='%.8e', delimiter=',')
 
+def fit_different_regions():
+	day_code = "day_64.44"
+	hst_file = "/home/linfel/linfel_turbo/hst_raw_JianyangLi/16674/stack_31_long.fits"
+	
+	output_dir = "/home/linfel/linfel_turbo/rebound_exp/fit_regions"
+	os.makedirs(output_dir, exist_ok=True)
+	
+	# process HST image
+	hst_data, log10_hst, x_km, y_km, pixel_km = process_hst(hst_file, day_code, output_dir)
+
+	# calculate intensity from simulation results
+	simu_data_dir = "/home/linfel/linfel_turbo/rebound_exp/data_high_longterm_snapshot_data"
+	RUN_NUMBERS = range(30, 44)
+	sim_stack, radius = process_simu_intensity(simu_data_dir, RUN_NUMBERS, x_km, y_km)
+
+	ny, nx = hst_data.shape
+	region_dict = {'1': [0, nx, 0, ny],
+		             '2': [0, nx, int(0.25*ny), int(0.75*ny)],
+	               '3': [0, nx, 0, int(0.75*ny)],
+	               '4': [0, nx, int(0.25*ny), ny],
+	               '5': [int(0.375*nx), nx, 0, ny],
+	               '6': [int(0.375*nx), nx, int(0.25*ny), int(0.75*ny)],
+								}
+
+	for region_key, region_range in region_dict.items():
+		print(f"# working on region {region_key}")
+		
+		subdir = os.path.join(output_dir, f"region{region_key}")
+		os.makedirs(subdir, exist_ok=True)
+		
+		# crop spatial range
+		ix_low = region_range[0]
+		ix_up  = region_range[1]
+		iy_low = region_range[2]
+		iy_up  = region_range[3]
+		
+		hst_crop = hst_data[iy_low:iy_up, ix_low:ix_up]
+		sim_crop = sim_stack[iy_low:iy_up, ix_low:ix_up, :]
+		
+		# fit the weights
+		weights, I_fit = fit_weight(sim_crop, hst_crop)
+		
+		# output fitting results
+		fitting_scatterplot(I_fit, hst_crop, subdir)
+		plot_fitted_image(I_fit, pixel_km, subdir)
+		plot_w_r(radius, weights, subdir)
+		np.savetxt(os.path.join(subdir, "w_r.csv"), np.array([radius, weights]).T, fmt='%.8e', delimiter=',')
+
+def w_r_from_txt():
+	for i in range(1,7):
+		print(f"working on No.{i}", flush=True)
+		data = np.genfromtxt(f"/home/linfel/linfel_turbo/rebound_exp/fit_regions/region{i}/w_r.csv", delimiter=',')
+		plot_w_r(data[:,0], data[:,1], f"/home/linfel/linfel_turbo/rebound_exp/fit_regions/region{i}")
+
 if __name__ == "__main__":
-	main()
+	fit_different_regions()
