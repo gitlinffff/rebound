@@ -169,8 +169,9 @@ def residuals(weights, I_models, I_obs):
 
 def fit_weight(simu, obsr):
 	# set fitting input X and Y
-	fit_input_X = simu.reshape(-1, np.shape(simu)[-1])  # shape: (ny*nx, n_sizes)
-	fit_input_Y = obsr.flatten()                        # shape: (ny*nx)
+	N_basis = np.shape(simu)[-1]
+	fit_input_X = simu.reshape(-1, N_basis)  # shape: (ny*nx, N_basis)
+	fit_input_Y = obsr.flatten()             # shape: (ny*nx)
 
 	# create a mask of HST meaningful signal (pixels of background signal 1e-20 are not used for fitting)
 	meaningful_signal_mask = np.log10(fit_input_Y + 1e-20) > -20.0
@@ -199,6 +200,7 @@ def fit_weight(simu, obsr):
 															5.36902768e-01, 5.75193493e-01, 6.08559074e-01, 5.99757568e-01,
 															5.61236310e-01, 4.91978292e-01, 3.86263984e-01, 2.45922593e-01,
 															7.13588707e-09, 7.13588707e-09])
+	initial_weights = np.ones(N_basis)
 	
 	# least square fitting
 	result = least_squares(
@@ -208,10 +210,41 @@ def fit_weight(simu, obsr):
 	)
 	final_weights = result.x
 
-	# calculate weighed fitting values
+	# --- CALCULATE ERROR BARS (UNCERTAINTIES) ---
+
+	# 1. Extract the Jacobian (J) and the residuals (r)
+	J = result.jac
+	r = result.fun
+
+	# 2. Define m (data points) and n (parameters)
+	m = fit_input_Y_filtered.size
+	n = initial_weights.size
+
+	# Degrees of freedom
+	dof = m - n
+
+	# 3. Calculate the estimated variance of the residuals (sigma_r^2)
+	# The residuals 'r' are in log10 space, so this is the variance of the log_diff.
+	r_variance = np.sum(r**2) / dof
+
+	# 4. Calculate the approximated Covariance Matrix (C)
+	try:
+			J_T_J_inv = np.linalg.inv(J.T @ J)
+			C = r_variance * J_T_J_inv
+	except np.linalg.LinAlgError:
+			# Handle case where the matrix is singular (no unique inverse)
+			print("Warning: Cannot calculate covariance matrix. J^T J is singular.")
+			weight_errors = np.full_like(final_weights, np.nan)
+			I_fit = (fit_input_X @ final_weights).reshape(np.shape(simu)[:2])
+			return final_weights, weight_errors, I_fit
+
+	# 5. Extract the standard errors (square root of the diagonal elements)
+	weight_errors = np.sqrt(np.diag(C))    
+
+	# calculate weighted fitting values
 	I_fit = (fit_input_X @ final_weights).reshape(np.shape(simu)[:2])
 
-	return final_weights, I_fit
+	return final_weights, weight_errors, I_fit
 
 def fitting_scatterplot(I_fit, obsr, output_dir):
 	x_data = np.log10(I_fit.flatten() + 1e-20)
@@ -301,19 +334,34 @@ def plot_fitted_image(I_fit, pixel_km, output_dir):
 	#plt.show()
 	plt.close()
 
-def plot_w_r(radius, weights, output_dir):
+def plot_w_r(radius, weights, errors, output_dir):
 	"""
-	plot fitted weights with dust radius.
+	plot fitted weights of different dust radius.
+	Show error bar for each weight.
 	"""
-	
-	# linear regression (A@x=b)
-	A = np.vstack([np.log(radius), np.ones(len(radius))]).T
-	b = np.log(weights)
+	# calculate the power using a linear regression (A@x=b)
+	# assume a power model between weights and radius
+	A = np.vstack([np.log10(radius), np.ones(len(radius))]).T
+	b = np.log10(weights)
 	x = np.linalg.lstsq(A, b, rcond=None)[0] # slope and intercept
 
 	plt.figure(figsize=(8, 6))
-	plt.loglog(radius, weights, 'bo-', label=f'slope={x[0]:.2f}')
+	# plot the weights
+	plt.loglog(radius, weights, 'bo')
 	
+	# plot the error bar for weights	
+	plt.errorbar(radius, weights, 
+							 yerr=errors,
+				fmt='bo',    # Blue circles for data points
+				#linestyle='-', # Connect the points with a line
+				capsize=5,     # Length of the error bar caps
+				label=f'Fitted Weights'
+			)
+	
+	# Plot the linear fit line
+	fit_line = 10**x[1] * radius**x[0]
+	plt.loglog(radius, fit_line, 'r--', label=f'Power Law Fit (slope={x[0]:.2f} intercept={x[1]:.2f})')
+
 	# Add axis labels that reflect the content
 	plt.xlabel('Particle Radius (m)')
 	plt.ylabel('Fitted Weights')
@@ -327,31 +375,7 @@ def simple_run():
 	day_code = "day_64.44"
 	hst_file = "/home/linfel/linfel_turbo/hst_raw_JianyangLi/16674/stack_31_long.fits"
 	
-	output_dir = "/home/linfel/linfel_turbo/rebound_exp/plots"
-	os.makedirs(output_dir, exist_ok=True)
-	
-	# process HST image
-	hst_data, log10_hst, x_km, y_km = process_hst(hst_file, day_code, output_dir)
-
-	# calculate intensity from simulation results
-	simu_data_dir = "/home/linfel/linfel_turbo/rebound_exp/data_high_longterm_snapshot_data"
-	RUN_NUMBERS = range(30, 44)
-	sim_stack, radius = process_simu_intensity(simu_data_dir, RUN_NUMBERS, x_km, y_km)
-
-	# fit the weights
-	weights, I_fit = fit_weight(sim_stack, hst_data)
-	
-	# output fitting results
-	fitting_scatterplot(I_fit, hst_data, output_dir)
-	plot_fitted_image(I_fit, x_km, y_km, output_dir)
-	plot_w_r(radius, weights, output_dir)
-	np.savetxt(os.path.join(output_dir, "w_r.csv"), np.array([radius, weights]).T, fmt='%.8e', delimiter=',')
-
-def fit_different_regions():
-	day_code = "day_64.44"
-	hst_file = "/home/linfel/linfel_turbo/hst_raw_JianyangLi/16674/stack_31_long.fits"
-	
-	output_dir = "/home/linfel/linfel_turbo/rebound_exp/fit_regions"
+	output_dir = "/home/linfel/linfel_turbo/rebound_exp/fit_weights_errors"
 	os.makedirs(output_dir, exist_ok=True)
 	
 	# process HST image
@@ -362,6 +386,30 @@ def fit_different_regions():
 	RUN_NUMBERS = range(30, 44)
 	sim_stack, radius = process_simu_intensity(simu_data_dir, RUN_NUMBERS, x_km, y_km)
 
+	# fit the weights
+	weights, errors, I_fit = fit_weight(sim_stack, hst_data)
+	
+	# output fitting results
+	fitting_scatterplot(I_fit, hst_data, output_dir)
+	plot_fitted_image(I_fit, x_km, y_km, output_dir)
+	plot_w_r(radius, weights, errors, output_dir)
+	np.savetxt(os.path.join(output_dir, "w_r.csv"), np.array([radius, weights, errors]).T, fmt='%.8e', delimiter=',')
+
+def fit_different_regions():
+	day_code = "day_64.44"
+	hst_file = "/home/linfel/linfel_turbo/hst_raw_JianyangLi/16674/stack_31_long.fits"
+	
+	output_dir = "/home/linfel/linfel_turbo/rebound_exp/fit_regions_test3"
+	os.makedirs(output_dir, exist_ok=True)
+	
+	# process HST image
+	hst_data, log10_hst, x_km, y_km, pixel_km = process_hst(hst_file, day_code, output_dir)
+
+	# calculate intensity from simulation results
+	simu_data_dir = "/home/linfel/linfel_turbo/rebound_exp/data_high_longterm_snapshot_data"
+	RUN_NUMBERS = range(37, 44)
+	sim_stack, radius = process_simu_intensity(simu_data_dir, RUN_NUMBERS, x_km, y_km)
+
 	ny, nx = hst_data.shape
 	region_dict = {'1': [0, nx, 0, ny],
 		             '2': [0, nx, int(0.25*ny), int(0.75*ny)],
@@ -369,11 +417,11 @@ def fit_different_regions():
 	               '4': [0, nx, int(0.25*ny), ny],
 	               '5': [int(0.375*nx), nx, 0, ny],
 	               '6': [int(0.375*nx), nx, int(0.25*ny), int(0.75*ny)],
+	               '7': [int(0.4*nx), nx, int(0.4*ny), int(0.65*ny)],
 								}
 
 	for region_key, region_range in region_dict.items():
-		print(f"# working on region {region_key}")
-		
+		print(f"# working on region {region_key}", flush=True)
 		subdir = os.path.join(output_dir, f"region{region_key}")
 		os.makedirs(subdir, exist_ok=True)
 		
@@ -382,24 +430,25 @@ def fit_different_regions():
 		ix_up  = region_range[1]
 		iy_low = region_range[2]
 		iy_up  = region_range[3]
-		
 		hst_crop = hst_data[iy_low:iy_up, ix_low:ix_up]
 		sim_crop = sim_stack[iy_low:iy_up, ix_low:ix_up, :]
 		
 		# fit the weights
-		weights, I_fit = fit_weight(sim_crop, hst_crop)
+		weights, errors, I_fit = fit_weight(sim_crop, hst_crop)
 		
 		# output fitting results
 		fitting_scatterplot(I_fit, hst_crop, subdir)
 		plot_fitted_image(I_fit, pixel_km, subdir)
-		plot_w_r(radius, weights, subdir)
-		np.savetxt(os.path.join(subdir, "w_r.csv"), np.array([radius, weights]).T, fmt='%.8e', delimiter=',')
+		plot_w_r(radius, weights, errors, subdir)
+		np.savetxt(os.path.join(subdir, "w_r.csv"), np.array([radius, weights, errors]).T, fmt='%.8e', delimiter=',')
 
 def w_r_from_txt():
-	for i in range(1,7):
+	for i in range(1,2):
 		print(f"working on No.{i}", flush=True)
 		data = np.genfromtxt(f"/home/linfel/linfel_turbo/rebound_exp/fit_regions/region{i}/w_r.csv", delimiter=',')
 		plot_w_r(data[:,0], data[:,1], f"/home/linfel/linfel_turbo/rebound_exp/fit_regions/region{i}")
 
 if __name__ == "__main__":
+	#simple_run()
 	fit_different_regions()
+	#w_r_from_txt()
