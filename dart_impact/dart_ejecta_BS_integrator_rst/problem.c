@@ -125,8 +125,8 @@ const double T33 = 0.986612735258626;
 double dt_minimum = 1.e15;
 
 // define output timing
-//static const double output_days[] = {0.0, 64.44, 78.65, 83.77, 92.66, 114.75, 131.29, 153.47, 155.31, 177.46, 198.9, 230.39};
-static const double output_days[] = {0.0, 0.01, 0.03, 0.05, 0.09, 0.1};
+static const double output_days[] = {0.0, 64.44, 78.65, 83.77, 92.66, 114.75, 131.29, 153.47, 155.31, 177.46, 198.9, 230.39};
+//static const double output_days[] = {0.0, 0.01, 0.03, 0.05, 0.09, 0.1};
 
 #define NUM_OUTPUTS (sizeof(output_days) / sizeof(output_days[0]))
 static const int num_outputs = NUM_OUTPUTS;
@@ -171,14 +171,14 @@ int main(int argc, char* argv[]){
 	//int np = omp_get_num_procs();
 	omp_set_num_threads(num_threads);
 	
-	// restart from the last snapshot
+	// restart from a specified snapshot
 	struct reb_simulationarchive* archive = reb_simulationarchive_create_from_file(fpath);// "archive.bin"
-	struct reb_simulation* r = reb_simulation_create_from_simulationarchive(archive, -1); // the last snapshot
+	struct reb_simulation* r = reb_simulation_create_from_simulationarchive(archive, 6); // -1 if the last snapshot
 	reb_simulationarchive_free(archive);
 
 	// print restarting information
 	printf("===========================\nRestarting information:\n");
-	printf("t: %f\n", r->t);
+	printf("t: %f s = %f day\n", r->t, r->t/86400.);
 	printf("dt: %f\n", r->dt);
 	printf("N_active: %d\n", r->N_active);
 	printf("G: %e\n", r->G);
@@ -208,7 +208,7 @@ int main(int argc, char* argv[]){
 			next_output_t = output_sec[i];
 			printf("Resuming output from index: %d\n", output_i);
 			printf("The next scheduled output time is: %.2f days (%.2f seconds)\n", 
-						 output_sec[i], next_output_t);
+						 next_output_t/86400., next_output_t);
 			break; // Stop when the next future time is found
 		}
 	}
@@ -221,7 +221,7 @@ int main(int argc, char* argv[]){
 	}
 
 	// start integration
-	reb_simulation_save_to_file_interval(r, "archive1.bin", 2000.); // save for restart. 10 days between snapshots
+	reb_simulation_save_to_file_interval(r, "archive1.bin", 864000.); // save for restart. 10 days between snapshots
 	reb_simulation_integrate(r, tmax);
 	fprintf(stdout, "\n");
 }
