@@ -40,14 +40,16 @@ def check_metadata():
 	"""
 	print out time in days of data particles.txt
 	"""
-	DATA_ROOTDIR = "/home/linfel/linfel_turbo/rebound_exp/data_high_shortterm_run"
-	RUN_NUMBERS = range(34, 51) # Define the run numbers you want to process
+	DATA_ROOTDIR = "/home/linfel/linfel_turbo/rebound_exp/data_high_shortterm_run_BS"
+	RUN_NUMBERS = range(20,25) # Define the run numbers you want to process
 	
 	for run_idx in RUN_NUMBERS:
-		print(f"processing run_{run_idx:03d}")
+		print(f"{'='*70}\nProcessing run_{run_idx:03d}")
 		data_path = os.path.join(DATA_ROOTDIR, f"run_{run_idx:03d}", "particles.txt")
 		Np, time = read_meta(data_path)
-		print(f"time: {time/86400.} day\n")
+		print(f"# of snapshots: {len(time)}")
+		print(f"First 5 time: {time[:5]/86400.} day")
+		print(f"Last  5 time: {time[-5:]/86400.} day")
 
 #------------------------------------------------------------------------------
 def check_pkl_structure(folder_path):
