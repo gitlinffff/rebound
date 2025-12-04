@@ -448,7 +448,36 @@ def w_r_from_txt():
 		data = np.genfromtxt(f"/home/linfel/linfel_turbo/rebound_exp/fit_regions/region{i}/w_r.csv", delimiter=',')
 		plot_w_r(data[:,0], data[:,1], f"/home/linfel/linfel_turbo/rebound_exp/fit_regions/region{i}")
 
+def constrain_mass():
+  # simulation data
+	simu_data_dir = "/home/linfel/linfel_turbo/rebound_exp/data_high_longterm_snapshot_data"
+	RUN_NUMBERS = range(37, 44)
+
+	# density of dust particle
+	rho = 3000  # kg/m3
+	
+	# read fitted weights
+	wt_data = np.genfromtxt(f"/home/linfel/linfel_turbo/rebound_exp/fit_regions_test3/region1/w_r.csv", delimiter=',')
+	radius_to_weight_map = dict(zip(wt_data[:, 0], wt_data[:, 1]))
+
+	# calculate total mass
+	tot_mass = 0.
+	for run_idx in RUN_NUMBERS:
+		file = os.path.join(simu_data_dir, f"{run_idx:03d}_snapshots.pkl")
+		# Read particle data
+		with open(file, 'rb') as f:
+			data = pickle.load(f)
+			Np = data['Np'][0]
+			radius_dust = data['radius_dust']
+			day = data['day'][0]
+		
+		wt = radius_to_weight_map[radius_dust]
+		print(f"Using data {file}\n day={day:.2f}   Np={Np}   radius={radius_dust:.3e}   weight={wt:.3e}\n")
+		tot_mass += Np * wt * rho * 4/3 * np.pi * radius_dust**3
+	print(f"Total mass: {tot_mass:.2e} kg")
+
 if __name__ == "__main__":
 	#simple_run()
-	fit_different_regions()
+	#fit_different_regions()
 	#w_r_from_txt()
+	constrain_mass()
