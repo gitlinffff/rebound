@@ -372,18 +372,19 @@ def plot_w_r(radius, weights, errors, output_dir):
 	plt.close()
 
 def simple_run():
-	day_code = "day_64.44"
-	hst_file = "/home/linfel/linfel_turbo/hst_raw_JianyangLi/16674/stack_31_long.fits"
+	day_code = "day_14.91"
+	hst_file = "/home/linfel/linfel_turbo/hst_raw_JianyangLi/16674/stack_23_long.fits"
 	
-	output_dir = "/home/linfel/linfel_turbo/rebound_exp/fit_weights_errors"
+	simu_data_dir = "/home/linfel/linfel_turbo/rebound_exp/data_high_shortterm_snapshot_data/day14.91"
+	RUN_NUMBERS = range(27, 42)
+	
+	output_dir = f"/home/linfel/linfel_turbo/rebound_exp/fit_{day_code}"
 	os.makedirs(output_dir, exist_ok=True)
 	
 	# process HST image
 	hst_data, log10_hst, x_km, y_km, pixel_km = process_hst(hst_file, day_code, output_dir)
 
 	# calculate intensity from simulation results
-	simu_data_dir = "/home/linfel/linfel_turbo/rebound_exp/data_high_longterm_snapshot_data"
-	RUN_NUMBERS = range(30, 44)
 	sim_stack, radius = process_simu_intensity(simu_data_dir, RUN_NUMBERS, x_km, y_km)
 
 	# fit the weights
@@ -477,7 +478,7 @@ def constrain_mass():
 	print(f"Total mass: {tot_mass:.2e} kg")
 
 if __name__ == "__main__":
-	#simple_run()
+	simple_run()
 	#fit_different_regions()
 	#w_r_from_txt()
-	constrain_mass()
+	#constrain_mass()
