@@ -8,9 +8,9 @@ radius_min = 1e-6  # m
 radius_max = 1e-1  # m
 
 # Create a logarithmic array of radii for smooth plotting
-num_points = 100
+num_points = 200
 r = np.logspace(np.log10(radius_min), np.log10(radius_max), num_points)
-r = r * 1e9  # convert to nm
+r_nm = r * 1e9  # convert to nm
 
 m = 1.7 - 0.01j  # refractive index of particle
 lambda0 = 500 # wavelength in vacuum (nm)
@@ -19,7 +19,7 @@ lambda0 = 500 # wavelength in vacuum (nm)
 
 # Calculate the size parameter (x)
 # The size parameter is x = 2 * pi * r / lambda0
-x = 2 * np.pi * r / lambda0
+x = 2 * np.pi * r_nm / lambda0
 
 # Calculate the efficiencies (Qext, Qsca, etc.)
 # Note: mie.efficiencies takes the size parameter 'x' (or 2*radius_dust * pi / lambda0),
@@ -36,9 +36,9 @@ plt.figure(figsize=(10, 6))
 plt.loglog(r, qsca, label=f'm = {m}')
 
 # Set plot labels and title
-plt.xlabel('Particle Radius, $r$ (nm)')
+plt.xlabel('Particle Radius, $r$ (m)')
 plt.ylabel('Scattering Efficiency, $Q_{\\text{sca}}$')
-plt.title(f'Mie Scattering Efficiency vs. Radius ($\lambda_0$ = {lambda0:.0f} nm)')
+plt.title(f'Mie Scattering Efficiency vs. Radius ($\\lambda_0$ = {lambda0:.0f} nm)')
 plt.legend()
 plt.grid(True, which="both", ls="--", linewidth=0.5)
 
