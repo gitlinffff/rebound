@@ -392,7 +392,7 @@ def simple_run():
 	
 	# output fitting results
 	fitting_scatterplot(I_fit, hst_data, output_dir)
-	plot_fitted_image(I_fit, x_km, y_km, output_dir)
+	plot_fitted_image(I_fit, pixel_km, output_dir)
 	plot_w_r(radius, weights, errors, output_dir)
 	np.savetxt(os.path.join(output_dir, "w_r.csv"), np.array([radius, weights, errors]).T, fmt='%.8e', delimiter=',')
 
