@@ -55,3 +55,4 @@ examples/solar_system_tes
 /dart_impact/**/*.csv
 /dart_impact/**/*.txt
 /dart_impact/**/*.mp4
+*.png
