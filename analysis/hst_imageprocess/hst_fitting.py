@@ -81,6 +81,7 @@ def process_simu_intensity(simu_data_dir, RUN_NUMBERS, x_km, y_km):
 	yedges = y_km * 1e3
 
 	inten_sets = []
+	d_away = [] # store distance of cloud of particles to DSB
 	rlist = []
 	# process every dataset
 	for run_idx in RUN_NUMBERS:
@@ -93,10 +94,11 @@ def process_simu_intensity(simu_data_dir, RUN_NUMBERS, x_km, y_km):
 			day = data['day'][0]
 			print(f"using data {file}  day={day}")
 
+		# =============== Project to HST view plane =======================
 		# position vector
-		r_sun = p_t[2, 1:4]    # [x, y, z] of the Sun
 		r_earth = p_t[3, 1:4]  # [x, y, z] of the Earth   (as a proxy of HST)
 		r_dust = p_t[4:, 1:4]  # [x, y, z] of all dust particles
+		#r_sun = p_t[2, 1:4]    # [x, y, z] of the Sun
 
 		# calculate the two basis vectors of the projection plane
 		l1 = np.cross(r_sky_north, r_earth)
@@ -114,7 +116,7 @@ def process_simu_intensity(simu_data_dir, RUN_NUMBERS, x_km, y_km):
 		# This step is to align simulated tail with observation in a line
 		#p_projected[:, 1], p_projected[:, 2] = rotate_coords(p_projected[:, 1], p_projected[:, 2], 7.2)
 		
-		"""2D density histogram"""
+		# ===================== Creat 2D density histogram =======================
 		hist_data = p_projected[4:]
 
 		# Extract x and y projected coordinates
@@ -137,22 +139,30 @@ def process_simu_intensity(simu_data_dir, RUN_NUMBERS, x_km, y_km):
 			density=False  # Set True if you want normalized density
 		)
 
+		# =================== Scattering intensity ========================
 		# set weight
 		# W = 1e6
 		# weight = 10 ** ((np.log10(radius_dust)+1) * np.log10(W) / (-3))    
 		weight = 1
 
 		# scattering intensity (assume scattering phase angle constant for all particles)
-		qext, qsca, qback, g = mie.efficiencies(m, 2*radius_dust, lambda0)
+		x_para = 2*np.pi*radius_dust / lambda0 # size parameter
+		qext, qsca, qback, g = mie.efficiencies_mx(m, x_para)
 		p_func = 1
 		px_inten = qsca * (np.pi * radius_dust**2) * px_den * weight * p_func
 		px_inten = px_inten.T
 
+		# ================== Distance of cloud of dust to DSB ====================
+		dust_bary = np.mean(r_dust, axis=0)  # average position of the dust particles
+		distance_to_DSB = np.linalg.norm(dust_bary)
+
+		# record the results
 		inten_sets.append(px_inten)
 		rlist.append(radius_dust)
+		d_away.append(distance_to_DSB)
 
 	sim_stack = np.stack(inten_sets, axis=-1)            # shape: (ny, nx, n_sizes)
-	return sim_stack, np.array(rlist)
+	return sim_stack, np.array(rlist), np.array(d_away)
 
 def residuals(weights, I_models, I_obs):
     # weights can't be negative
@@ -371,21 +381,55 @@ def plot_w_r(radius, weights, errors, output_dir):
 	plt.savefig(os.path.join(output_dir, "w_r.png"), dpi=300, bbox_inches='tight', pad_inches=0.1)
 	plt.close()
 
+def plot_x_r(radius, distance, output_dir):
+	"""
+	Plot the relationship between the distance the cloud of particles travel and radius.
+	Fit the power law relation.
+	"""
+	# calculate the power using a linear regression (A@x=b)
+	# assume a power model between weights and radius
+	A = np.vstack([np.log10(radius), np.ones(len(radius))]).T
+	b = np.log10(distance)
+	x = np.linalg.lstsq(A, b, rcond=None)[0] # slope and intercept
+
+	plt.figure(figsize=(8, 6))
+	# plot the weights
+	plt.loglog(radius, distance, 'bo')
+	
+	# Plot the linear fit line
+	fit_line = 10**x[1] * radius**x[0]
+	plt.loglog(radius, fit_line, 'r--', label=f'Power Law Fit (slope={x[0]:.2f} intercept={x[1]:.2f})')
+
+	# Add axis labels that reflect the content
+	plt.xlabel('Particle Radius (m)')
+	plt.ylabel('Distance from Didymos System Barycenter (m)')
+	plt.title('Distance traveled vs. Radius')
+	plt.legend()
+	plt.grid(True, which="both", ls="--", linewidth=0.5)
+	plt.savefig(os.path.join(output_dir, "distance_r_1.png"), dpi=150, bbox_inches='tight', pad_inches=0.1)
+	plt.close()
+
 def simple_run():
-	day_code = "day_14.91"
-	hst_file = "/home/linfel/linfel_turbo/hst_raw_JianyangLi/16674/stack_23_long.fits"
+	day_code = "day_5.70"
+	hst_file = "/home/linfel/linfel_turbo/hst_raw_JianyangLi/16674/stack_18_long.fits"
 	
-	simu_data_dir = "/home/linfel/linfel_turbo/rebound_exp/data_high_shortterm_snapshot_data/day14.91"
-	RUN_NUMBERS = range(27, 42)
+	simu_data_dir = ("/home/linfel/linfel_turbo/rebound_exp/"
+									 "data_high_shortterm_snapshot_data/day5.70")
+	RUN_NUMBERS = range(20, 36)
 	
-	output_dir = f"/home/linfel/linfel_turbo/rebound_exp/fit_{day_code}"
+	output_dir = f"/home/linfel/linfel_turbo/rebound_exp/fit_{day_code}_2samples"
 	os.makedirs(output_dir, exist_ok=True)
 	
 	# process HST image
 	hst_data, log10_hst, x_km, y_km, pixel_km = process_hst(hst_file, day_code, output_dir)
 
 	# calculate intensity from simulation results
-	sim_stack, radius = process_simu_intensity(simu_data_dir, RUN_NUMBERS, x_km, y_km)
+	sim_stack, radius, distance_away = process_simu_intensity(simu_data_dir, RUN_NUMBERS, x_km, y_km)
+	
+	# plot distance-away with radius
+	#plot_x_r(radius[:-6], distance_away[:-6], output_dir)
+	#plot_x_r(radius, distance_away, output_dir)
+	#return
 
 	# fit the weights
 	weights, errors, I_fit = fit_weight(sim_stack, hst_data)
@@ -409,7 +453,7 @@ def fit_different_regions():
 	# calculate intensity from simulation results
 	simu_data_dir = "/home/linfel/linfel_turbo/rebound_exp/data_high_longterm_snapshot_data"
 	RUN_NUMBERS = range(37, 44)
-	sim_stack, radius = process_simu_intensity(simu_data_dir, RUN_NUMBERS, x_km, y_km)
+	sim_stack, radius, distance_away = process_simu_intensity(simu_data_dir, RUN_NUMBERS, x_km, y_km)
 
 	ny, nx = hst_data.shape
 	region_dict = {'1': [0, nx, 0, ny],
