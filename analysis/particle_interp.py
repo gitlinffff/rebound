@@ -76,11 +76,12 @@ def interpolate_particle_position(data1, data2, alpha):
 	p_interp_pos = (1-alpha) * p1_pos + alpha * p2_pos
 
 	# save data to dictionary
+	id_column = matched_ids.reshape(-1, 1)
 	save_data = {
 		"day": day,
 		"Np": len(matched_ids),
 		"radius_dust": r_interp,
-		"p_t": p_interp_pos
+		"p_t": np.hstack([id_column, p_interp_pos])
 	}
 	
 	return save_data, r1, r2
@@ -130,7 +131,7 @@ def run_one():
 	"""
 	simu_data_dir = ("/home/linfel/linfel_turbo/rebound_exp/"
 									 "data_high_shortterm_snapshot_data/day5.70")
-	RUN_NUMBERS = list(range(26, 27)) 
+	RUN_NUMBERS = list(range(27, 28)) 
 
 	output_dir = (f"/home/linfel/linfel_turbo/rebound_exp/data_high_shortterm_snapshot_data/"
 								f"day5.70_interp_run20-27")
@@ -145,7 +146,7 @@ def run_one():
 		p_data2 = load_particle_data(filepath2)
 
 		if p_data1 is not None and p_data2 is not None:
-			alpha=1.0
+			alpha=0.0
 			# Perform the interpolation
 			data_interp, r_1, r_2 = interpolate_particle_position(p_data1, p_data2, alpha)
 
