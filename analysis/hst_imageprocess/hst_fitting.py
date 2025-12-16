@@ -1,10 +1,12 @@
+import time
 import os, pickle
-import numpy as np
+import h5py
 from astropy.io import fits
+import numpy as np
 from scipy.optimize import least_squares
 import miepython as mie
 import matplotlib.pyplot as plt
-from coordinates import position_dict
+from coordinates import position_dict, day_hstfile_mapping
 
 def process_hst(hst_file, day_code, output_dir):
 	# Load FITS image
@@ -43,7 +45,7 @@ def process_hst(hst_file, day_code, output_dir):
 
 	# Plot HST observation
 	plt.figure(figsize=(8, 8))
-	pc = plt.pcolormesh(X, Y, log10_hst, cmap='gray', shading='auto', vmin=-14, vmax=np.nanmax(log10_hst))
+	pc = plt.pcolormesh(X, Y, log10_hst, cmap='cividis', shading='auto', vmin=-8, vmax=np.nanmax(log10_hst))
 
 	cbar = plt.colorbar(pc, orientation='horizontal', pad=0.1, shrink=0.8, aspect=30)  # pad adjusts spacing
 	cbar.set_label(r'$\log_{10}$(Pixel Value)')
@@ -206,11 +208,11 @@ def fit_weight(simu, obsr):
 	print(f"{'HST Observation':<20} {hst_min:>15.2e} {hst_max:>15.2e}")
 
 	# set initial weights
-	initial_weights = np.array([1.48607575e-01, 2.03574515e-01, 3.44638220e-01, 4.84672084e-01,
-															5.36902768e-01, 5.75193493e-01, 6.08559074e-01, 5.99757568e-01,
-															5.61236310e-01, 4.91978292e-01, 3.86263984e-01, 2.45922593e-01,
-															7.13588707e-09, 7.13588707e-09])
 	initial_weights = np.ones(N_basis)
+#	initial_weights = np.array([1.48607575e-01, 2.03574515e-01, 3.44638220e-01, 4.84672084e-01,
+#															5.36902768e-01, 5.75193493e-01, 6.08559074e-01, 5.99757568e-01,
+#															5.61236310e-01, 4.91978292e-01, 3.86263984e-01, 2.45922593e-01,
+#															7.13588707e-09, 7.13588707e-09])
 	
 	# least square fitting
 	result = least_squares(
@@ -344,33 +346,41 @@ def plot_fitted_image(I_fit, pixel_km, output_dir):
 	#plt.show()
 	plt.close()
 
-def plot_w_r(radius, weights, errors, output_dir):
+def plot_w_r(radius, weights, errors, output_dir, segments=[slice(None)]):
 	"""
 	plot fitted weights of different dust radius.
 	Show error bar for each weight.
 	"""
-	# calculate the power using a linear regression (A@x=b)
-	# assume a power model between weights and radius
-	A = np.vstack([np.log10(radius), np.ones(len(radius))]).T
-	b = np.log10(weights)
-	x = np.linalg.lstsq(A, b, rcond=None)[0] # slope and intercept
 
 	plt.figure(figsize=(8, 6))
+
+	# piece wise fit and plot fit line
+	for ss in segments:
+		xp, yp = radius[ss], weights[ss]
+		# calculate the power using a linear regression (A@x=b)
+		# assume a power model between weights and radius
+		A = np.vstack([np.log10(xp), np.ones(len(xp))]).T
+		b = np.log10(yp)
+		x = np.linalg.lstsq(A, b, rcond=None)[0] # slope and intercept
+
+		# Plot the linear fit line
+		fit_line = 10**x[1] * xp**x[0]
+		plt.loglog(xp, fit_line, 'r--', zorder=10, 
+		           label=f'Power Law Fit (slope={x[0]:.2f} intercept={x[1]:.2f})')
+
 	# plot the weights
-	plt.loglog(radius, weights, 'bo')
+	#plt.loglog(radius, weights, 'bo')
 	
 	# plot the error bar for weights	
 	plt.errorbar(radius, weights, 
 							 yerr=errors,
 				fmt='bo',    # Blue circles for data points
 				#linestyle='-', # Connect the points with a line
-				capsize=5,     # Length of the error bar caps
+				ms=4,
+				capsize=3,     # Length of the error bar caps
+				alpha=0.4,
 				label=f'Fitted Weights'
 			)
-	
-	# Plot the linear fit line
-	fit_line = 10**x[1] * radius**x[0]
-	plt.loglog(radius, fit_line, 'r--', label=f'Power Law Fit (slope={x[0]:.2f} intercept={x[1]:.2f})')
 
 	# Add axis labels that reflect the content
 	plt.xlabel('Particle Radius (m)')
@@ -378,7 +388,7 @@ def plot_w_r(radius, weights, errors, output_dir):
 	plt.title('Weights vs. Radius')
 	plt.legend()
 	plt.grid(True, which="both", ls="--", linewidth=0.5)
-	plt.savefig(os.path.join(output_dir, "w_r.png"), dpi=300, bbox_inches='tight', pad_inches=0.1)
+	plt.savefig(os.path.join(output_dir, "w_r.png"), dpi=150, bbox_inches='tight', pad_inches=0.1)
 	plt.close()
 
 def plot_x_r(radius, distance, output_dir):
@@ -409,15 +419,44 @@ def plot_x_r(radius, distance, output_dir):
 	plt.savefig(os.path.join(output_dir, "distance_r_1.png"), dpi=150, bbox_inches='tight', pad_inches=0.1)
 	plt.close()
 
+# ==================== h5 save and load file ========================
+def save_array_to_h5(file_path, data_name, data):
+	start_time = time.time()
+	# 'w' means open the file for writing (creates it if it doesn't exist)
+	with h5py.File(file_path, 'w') as f:
+		dset = f.create_dataset(
+			data_name, 
+			data=data, 
+			compression='gzip', 
+			compression_opts=4  # sets the compression level (1 is fastest, 9 is highest ratio
+		)
+	end_time = time.time()
+	print(f"{file_path} Save successful in {end_time - start_time:.4f} seconds.")
+
+def load_array_from_h5(file_path, data_name):
+	start_time = time.time()
+	# 'r' means open the file for reading
+	with h5py.File(file_path, 'r') as f:
+		# Access the dataset by its name
+		dset = f[data_name]
+		
+		# Read the entire dataset into a NumPy array in memory
+		loaded_data = dset[:]
+	
+	end_time = time.time()
+	print(f"Load h5 successful in {end_time - start_time:.4f} seconds.")
+	return loaded_data
+# ==================================================================
+
 def simple_run():
-	day_code = "day_5.70"
-	hst_file = "/home/linfel/linfel_turbo/hst_raw_JianyangLi/16674/stack_18_long.fits"
+	day_code = "day_64.44"
+	hst_file = os.path.join("/home/linfel/linfel_data/hst_raw_JianyangLi/", day_hstfile_mapping[day_code])
 	
-	simu_data_dir = ("/home/linfel/linfel_turbo/rebound_exp/"
-									 "data_high_shortterm_snapshot_data/day5.70")
-	RUN_NUMBERS = range(20, 36)
+	simu_data_dir = ("/home/linfel/linfel_data/"
+									 f"data_high_longterm_snapshot_data/{day_code}_interp")
+	RUN_NUMBERS = range(380, 451)
 	
-	output_dir = f"/home/linfel/linfel_turbo/rebound_exp/fit_{day_code}_2samples"
+	output_dir = f"/home/linfel/linfel_data/longterm_anal/{day_code}_380-450"
 	os.makedirs(output_dir, exist_ok=True)
 	
 	# process HST image
@@ -434,25 +473,33 @@ def simple_run():
 	# fit the weights
 	weights, errors, I_fit = fit_weight(sim_stack, hst_data)
 	
-	# output fitting results
+	# save the data
+	np.savetxt(os.path.join(output_dir, 'w_r.csv'), np.array([radius, weights, errors]).T, fmt='%.8e', delimiter=',')
+	save_array_to_h5(os.path.join(output_dir, 'I_fit.h5'), 'intensity', I_fit)
+	
+	loaded_I_fit = load_array_from_h5(os.path.join(output_dir, 'I_fit.h5'), 'intensity')
+	is_identical = np.allclose(I_fit, loaded_I_fit, rtol=1e-14, atol=1e-14)
+	print(f"Verification: Are original and loaded arrays identical? {is_identical}")
+
+	# make plots
 	fitting_scatterplot(I_fit, hst_data, output_dir)
 	plot_fitted_image(I_fit, pixel_km, output_dir)
 	plot_w_r(radius, weights, errors, output_dir)
-	np.savetxt(os.path.join(output_dir, "w_r.csv"), np.array([radius, weights, errors]).T, fmt='%.8e', delimiter=',')
 
 def fit_different_regions():
 	day_code = "day_64.44"
-	hst_file = "/home/linfel/linfel_turbo/hst_raw_JianyangLi/16674/stack_31_long.fits"
+	hst_file = os.path.join("/home/linfel/linfel_data/hst_raw_JianyangLi/", day_hstfile_mapping[day_code])
 	
-	output_dir = "/home/linfel/linfel_turbo/rebound_exp/fit_regions_test3"
+	output_dir = f"/home/linfel/linfel_data/longterm_anal/{day_code}_380-450"
 	os.makedirs(output_dir, exist_ok=True)
 	
 	# process HST image
 	hst_data, log10_hst, x_km, y_km, pixel_km = process_hst(hst_file, day_code, output_dir)
 
 	# calculate intensity from simulation results
-	simu_data_dir = "/home/linfel/linfel_turbo/rebound_exp/data_high_longterm_snapshot_data"
-	RUN_NUMBERS = range(37, 44)
+	simu_data_dir = ("/home/linfel/linfel_data/"
+									 f"data_high_longterm_snapshot_data/{day_code}_interp")
+	RUN_NUMBERS = range(380, 451)
 	sim_stack, radius, distance_away = process_simu_intensity(simu_data_dir, RUN_NUMBERS, x_km, y_km)
 
 	ny, nx = hst_data.shape
@@ -465,6 +512,8 @@ def fit_different_regions():
 	               '7': [int(0.4*nx), nx, int(0.4*ny), int(0.65*ny)],
 								}
 
+	region_dict = {'1': [int(0.55*nx), nx, int(0.4*ny), int(0.65*ny)],}
+	
 	for region_key, region_range in region_dict.items():
 		print(f"# working on region {region_key}", flush=True)
 		subdir = os.path.join(output_dir, f"region{region_key}")
@@ -481,17 +530,37 @@ def fit_different_regions():
 		# fit the weights
 		weights, errors, I_fit = fit_weight(sim_crop, hst_crop)
 		
-		# output fitting results
+		# save the data
+		np.savetxt(os.path.join(subdir, 'w_r.csv'), np.array([radius, weights, errors]).T, fmt='%.8e', delimiter=',')
+		save_array_to_h5(os.path.join(subdir, 'I_fit.h5'), 'intensity', I_fit)
+
+		loaded_I_fit = load_array_from_h5(os.path.join(subdir, 'I_fit.h5'), 'intensity')
+		is_identical = np.allclose(I_fit, loaded_I_fit, rtol=1e-14, atol=1e-14)
+		print(f"Verification: Are original and loaded arrays identical? {is_identical}")
+
+		# make plots
 		fitting_scatterplot(I_fit, hst_crop, subdir)
 		plot_fitted_image(I_fit, pixel_km, subdir)
 		plot_w_r(radius, weights, errors, subdir)
-		np.savetxt(os.path.join(subdir, "w_r.csv"), np.array([radius, weights, errors]).T, fmt='%.8e', delimiter=',')
+
+def get_HST_image():
+	#day_list = ["day_0.34", "day_0.74", "day_1.14", "day_1.74", "day_2.15", "day_3.72", "day_4.72"]
+	#day_list = ["day_5.70", "day_11.86", "day_14.91", "day_64.44"]
+	day_list = ["day_64.44"]
+	
+	for day_code in day_list:
+		hst_file = os.path.join("/home/linfel/linfel_data/hst_raw_JianyangLi/", day_hstfile_mapping[day_code])
+		output_dir = f"/home/linfel/linfel_data/longterm_anal/{day_code}"
+		os.makedirs(output_dir, exist_ok=True)
+		
+		# process HST image
+		hst_data, log10_hst, x_km, y_km, pixel_km = process_hst(hst_file, day_code, output_dir)
 
 def w_r_from_txt():
-	for i in range(1,2):
-		print(f"working on No.{i}", flush=True)
-		data = np.genfromtxt(f"/home/linfel/linfel_turbo/rebound_exp/fit_regions/region{i}/w_r.csv", delimiter=',')
-		plot_w_r(data[:,0], data[:,1], f"/home/linfel/linfel_turbo/rebound_exp/fit_regions/region{i}")
+	segments = [slice(0,8), slice(8,26), slice(26, None)]
+	data = np.genfromtxt(f"/home/linfel/linfel_data/shortterm_anal/day_11.86_260-380/w_r.csv", delimiter=',')
+	plot_w_r(data[:,0], data[:,1], data[:,2],
+	         f"/home/linfel/linfel_data/shortterm_anal/day_11.86_260-380", segments=segments)
 
 def constrain_mass():
   # simulation data
@@ -522,7 +591,8 @@ def constrain_mass():
 	print(f"Total mass: {tot_mass:.2e} kg")
 
 if __name__ == "__main__":
-	simple_run()
-	#fit_different_regions()
+	#simple_run()
+	fit_different_regions()
 	#w_r_from_txt()
 	#constrain_mass()
+	#get_HST_image()
