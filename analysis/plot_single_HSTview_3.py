@@ -44,9 +44,9 @@ def plot_HSTview_colorgroups(filenames, output_dir, day, axis_lims):
 			# Read particle data
 			with open(filenames[i], 'rb') as f:
 					data = pickle.load(f)
-					p_t = data['p_t']
+					p_t = data['p_t'][0]
 					radius_dust = data['radius_dust']
-					day = data['day']
+					day = data['day'][0]
 					print(f"Using data **{filenames[i].split('/')[-1]}**, day={day}, radius={radius_dust}")
 
 			# set group label
@@ -80,22 +80,23 @@ def plot_HSTview_colorgroups(filenames, output_dir, day, axis_lims):
 
 
 def main_plot():
-	day = 5.70  # set the day label
-	RUN_NUMBERS = range(200, 271) # select datasets
+	day_code = "day_64.44"  # set the day label
+	RUN_NUMBERS = list(range(38, 46))+list(range(48, 51)) # select datasets
 	
-	# data path
-	data_dir = (f"/home/linfel/linfel_turbo/rebound_exp/data_high_shortterm_snapshot_data/"
-							f"day{day:.2f}_interp_run20-27")
-	filenames = [os.path.join(data_dir, f"{i:04d}_snapshots.pkl") for i in RUN_NUMBERS]
+	# .pkl snapshots data path
+	data_dir = (f"/home/linfel/linfel_data/data_high_longterm_snapshot_data/"
+							f"{day_code}")
+	filenames = [os.path.join(data_dir, f"{i:03d}_snapshots.pkl") for i in RUN_NUMBERS]
 
 	# Ensure output directory exists for saving frames
-	output_dir = f"/home/linfel/linfel_turbo/rebound_exp/plots/particles_day{day}_interp_data"
+	output_dir = f"/home/linfel/linfel_data/longterm_anal/{day_code}"
 	os.makedirs(output_dir, exist_ok=True)
 
-	axis_lims = [-1400e3, 1400e3, -1400e3, 1400e3]    # m
+	axis_lims = [-4500e3, 4500e3, -4500e3, 4500e3]    # m
 	#axis_lims = [-28799e3, 28799e3, -28799e3, 28799e3]    # m
 	#axis_lims = [-600e3, 600e3, -600e3, 600e3]
 
+	day = float(day_code.split('_')[1])
 	plot_HSTview_colorgroups(filenames, output_dir, day, axis_lims)
 
 def multi_plots():
