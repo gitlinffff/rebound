@@ -87,23 +87,24 @@ def load_and_preprocess_h5(file_path, data_name):
 # Since we assume the system is identical, we pass the necessary parameters derived 
 # from the first image.
 
-def measure_tail_intensity(image_array_1, image_array_2, extent, nx, ny):
+def measure_tail_intensity(image_array_1, image_array_2, extent, nx, ny, output_dir):
 	"""
 	Displays image_array_1, prompts user to select two points, 
 	samples intensity from both arrays, and plots results.
 	"""
 	
-	fig, ax = plt.subplots(figsize=(10, 10))
+	fig, ax = plt.subplots(figsize=(12, 12))
 
 	# Display Image 1 for selection
-	img_plot = ax.imshow(image_array_1, origin='lower', cmap='gray', vmin=-14, vmax=-4, extent=extent)
+	img_plot = ax.imshow(image_array_1, origin='lower', cmap='cividis',
+	                    vmin=-8, vmax=np.nanmax(image_array_1), extent=extent)
 	
-	cbar = fig.colorbar(img_plot, ax=ax, orientation='horizontal', fraction=0.046, pad=0.04)
-	cbar.set_label('$\log_{10}$ (Pixel Value)')
+	#cbar = fig.colorbar(img_plot, ax=ax, orientation='horizontal', fraction=0.046, pad=0.04)
+	#cbar.set_label('$\log_{10}$ (Pixel Value)')
 
 	ax.set_xlabel('X Distance (km)')
 	ax.set_ylabel('Y Distance (km)')
-	ax.set_title('HST Image 1: Click to define tail line (Start and End)')
+	ax.set_title('HST Image: Click to define tail line (Start and End)')
 
 	print("--- INSTRUCTIONS ---")
 	print("Please click two points on the image (Image 1): ")
@@ -152,37 +153,40 @@ def measure_tail_intensity(image_array_1, image_array_2, extent, nx, ny):
 
 	# --- 3. Plot the Intensity Profiles ---
 	
-	plt.figure(figsize=(10, 6))
+	plt.figure(figsize=(10, 2))
+	ftsize = 12
+
+	plt.plot(distance_km, intensity_profile_1, 'k-', linewidth=2, label='HST observation')
+	plt.plot(distance_km, intensity_profile_2, 'r--', linewidth=2, label='Model fit')
 	
-	plt.plot(distance_km, intensity_profile_1, 'k-', linewidth=2, label='Image 1 (HST)')
-	plt.plot(distance_km, intensity_profile_2, 'r--', linewidth=2, label='Image 2 (fit)')
-	
-	plt.xlabel('Distance Along Tail (km)')
-	plt.ylabel('Measured Intensity ($\log_{10}$ Pixel Value)')
-	plt.title(f'Intensity Profile Comparison Along Selected Tail Axis')
+	plt.xlabel('Distance Along Tail (km)', fontsize=ftsize+2)
+	plt.ylabel('($\log_{10}$ Pixel Value)', fontsize=ftsize)
+	plt.title(f'Intensity Profile Comparison Along Selected Tail Axis', fontsize=ftsize+4)
 	plt.grid(True, linestyle='--', alpha=0.7)
-	plt.legend()
-	
+	plt.legend(fontsize=ftsize)
+	plt.savefig(os.path.join(output_dir, f'tail_intensity_profile.png'), dpi=300, bbox_inches='tight')
 	plt.show()
 
 
 # --- 4. Execution Block ---
 
-# Define file paths and coordinate key
-day_code = 'day_11.86' # Key for coordinate data
-FILEPATH_1 = os.path.join("/home/linfel/linfel_data/hst_raw_JianyangLi/", day_hstfile_mapping[day_code])
-FILEPATH_2 = f"/home/linfel/linfel_data/shortterm_anal/{day_code}_260-380/I_fit.h5"
+if __name__ == "__main__":
+	# Define file paths and coordinate key
+	day_code = 'day_11.86' # Key for coordinate data
+	FILEPATH_1 = os.path.join("/home/linfel/linfel_data/hst_raw_JianyangLi/", day_hstfile_mapping[day_code])
+	FILEPATH_2 = f"/home/linfel/linfel_data/shortterm_anal/{day_code}_260-380/I_fit.h5"
+	output_dir = f"/home/linfel/linfel_data/shortterm_anal/{day_code}_260-380"
 
-# Load and process Image 1 (This sets the primary coordinate system)
-log10_hst, extent_1, pixel_km_1, nx_1, ny_1 = load_and_preprocess_fits(FILEPATH_1, day_code)
+	# Load and process Image 1 (This sets the primary coordinate system)
+	log10_hst, extent_1, pixel_km_1, nx_1, ny_1 = load_and_preprocess_fits(FILEPATH_1, day_code)
 
-# Load and process Image 2
-log10_I_fit, nx_2, ny_2 = load_and_preprocess_h5(FILEPATH_2, 'intensity')
+	# Load and process Image 2
+	log10_I_fit, nx_2, ny_2 = load_and_preprocess_h5(FILEPATH_2, 'intensity')
 
-if log10_hst is not None and log10_I_fit is not None:
-	# Ensure both images are the same size before proceeding
-	if log10_hst.shape != log10_I_fit.shape:
-		print("Error: The two image arrays must have the same shape for comparison.")
-	else:
-		# Execute the main measurement and plotting function
-		measure_tail_intensity(log10_hst, log10_I_fit, extent_1, nx_1, ny_1)
+	if log10_hst is not None and log10_I_fit is not None:
+		# Ensure both images are the same size before proceeding
+		if log10_hst.shape != log10_I_fit.shape:
+			print("Error: The two image arrays must have the same shape for comparison.")
+		else:
+			# Execute the main measurement and plotting function
+			measure_tail_intensity(log10_hst, log10_I_fit, extent_1, nx_1, ny_1, output_dir)
