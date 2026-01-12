@@ -179,7 +179,7 @@ def residuals(weights, I_models, I_obs):
     log_diff = np.log10(I_obs + epsilon) - np.log10(I_fit + epsilon)
     return log_diff
 
-def fit_weight(simu, obsr):
+def fit_weight(simu, obsr, polygon_mask_1d):
 	# set fitting input X and Y
 	N_basis = np.shape(simu)[-1]
 	fit_input_X = simu.reshape(-1, N_basis)  # shape: (ny*nx, N_basis)
@@ -188,9 +188,15 @@ def fit_weight(simu, obsr):
 	# create a mask of HST meaningful signal (pixels of background signal 1e-20 are not used for fitting)
 	meaningful_signal_mask = np.log10(fit_input_Y + 1e-20) > -20.0
 
+	if polygon_mask_1d.shape != meaningful_signal_mask.shape:
+		print("Error: Polygon mask shape mismatch. Using only meaningful signal mask.")
+		combined_mask = meaningful_signal_mask
+	else:
+		combined_mask = meaningful_signal_mask & polygon_mask_1d
+
 	# get the meaningful pixels from the HST data and simulated data using the mask
-	fit_input_Y_filtered = fit_input_Y[meaningful_signal_mask]
-	fit_input_X_filtered = fit_input_X[meaningful_signal_mask, :]
+	fit_input_Y_filtered = fit_input_Y[combined_mask]
+	fit_input_X_filtered = fit_input_X[combined_mask, :]
 
 	# --- min/max values ---
 	sim_min = np.min(fit_input_X_filtered)
@@ -366,7 +372,8 @@ def plot_w_r(radius, weights, errors, output_dir, segments=[slice(None)]):
 		# Plot the linear fit line
 		fit_line = 10**x[1] * xp**x[0]
 		plt.loglog(xp, fit_line, 'r--', zorder=10, 
-		           label=f'Power Law Fit (slope={x[0]:.2f} intercept={x[1]:.2f})')
+		           #label=f'Power Law Fit (slope={x[0]:.2f} intercept={x[1]:.2f})')
+		           label=f'Power Law Fit (slope={x[0]:.2f})')
 
 	# plot the weights
 	#plt.loglog(radius, weights, 'bo')
@@ -386,7 +393,7 @@ def plot_w_r(radius, weights, errors, output_dir, segments=[slice(None)]):
 	plt.xlabel('Particle Radius (m)')
 	plt.ylabel('Fitted Weights')
 	plt.title('Weights vs. Radius')
-	plt.legend()
+	plt.legend(fontsize=13)
 	plt.grid(True, which="both", ls="--", linewidth=0.5)
 	plt.savefig(os.path.join(output_dir, "w_r.png"), dpi=150, bbox_inches='tight', pad_inches=0.1)
 	plt.close()
@@ -456,8 +463,11 @@ def simple_run():
 									 f"data_high_longterm_snapshot_data/{day_code}_interp")
 	RUN_NUMBERS = range(380, 451)
 	
+	mask_filepath = f"/home/linfel/linfel_data/longterm_anal/{day_code}/hst_region_1dmask.npy"
+	
 	output_dir = f"/home/linfel/linfel_data/longterm_anal/{day_code}_380-450"
 	os.makedirs(output_dir, exist_ok=True)
+	
 	
 	# process HST image
 	hst_data, log10_hst, x_km, y_km, pixel_km = process_hst(hst_file, day_code, output_dir)
@@ -470,8 +480,11 @@ def simple_run():
 	#plot_x_r(radius, distance_away, output_dir)
 	#return
 
+	# load the selected region
+	polygon_mask_1d = np.load(mask_filepath)
+	
 	# fit the weights
-	weights, errors, I_fit = fit_weight(sim_stack, hst_data)
+	weights, errors, I_fit = fit_weight(sim_stack, hst_data, polygon_mask_1d)
 	
 	# save the data
 	np.savetxt(os.path.join(output_dir, 'w_r.csv'), np.array([radius, weights, errors]).T, fmt='%.8e', delimiter=',')
@@ -557,10 +570,10 @@ def get_HST_image():
 		hst_data, log10_hst, x_km, y_km, pixel_km = process_hst(hst_file, day_code, output_dir)
 
 def w_r_from_txt():
-	segments = [slice(0,8), slice(8,26), slice(26, None)]
-	data = np.genfromtxt(f"/home/linfel/linfel_data/shortterm_anal/day_11.86_260-380/w_r.csv", delimiter=',')
+	segments = [slice(4,28), slice(28,50), slice(50, None)]
+	data = np.genfromtxt(f"/home/linfel/linfel_data/shortterm_anal/day_5.70_200-310/w_r.csv", delimiter=',')
 	plot_w_r(data[:,0], data[:,1], data[:,2],
-	         f"/home/linfel/linfel_data/shortterm_anal/day_11.86_260-380", segments=segments)
+	         f"/home/linfel/linfel_data/shortterm_anal/day_5.70_200-310", segments=segments)
 
 def constrain_mass():
   # simulation data
@@ -592,7 +605,7 @@ def constrain_mass():
 
 if __name__ == "__main__":
 	#simple_run()
-	fit_different_regions()
-	#w_r_from_txt()
+	#fit_different_regions()
+	w_r_from_txt()
 	#constrain_mass()
 	#get_HST_image()
