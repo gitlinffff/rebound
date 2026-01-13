@@ -90,7 +90,7 @@ def load_and_preprocess_h5(file_path, data_name):
 def measure_tail_intensity(image_array_1, image_array_2, extent, nx, ny, output_dir):
 	"""
 	Displays image_array_1, prompts user to select two points, 
-	samples intensity from both arrays, and plots results.
+	samples intensity from both arrays, and plots results to compare.
 	"""
 	
 	fig, ax = plt.subplots(figsize=(12, 12))
