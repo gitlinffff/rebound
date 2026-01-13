@@ -9,6 +9,16 @@ import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 from frame_renderer import init_worker, render_single_HSTview_colorgroups
 
+def color_palette(num):
+	if num > 60:
+		# The 'hsv' colormap provides colors based on the full color wheel (360 degrees)
+		cmap = plt.cm.get_cmap('hsv', num)
+		cp = [cmap(i)[:3] for i in range(num)]
+	else:
+		cp = list(plt.cm.tab20.colors) + list(plt.cm.tab20b.colors) + list(plt.cm.tab20c.colors) 
+		cp = [c[:3] for c in cp[:num]]
+	return cp
+
 def plot_HSTview_colorgroups(filenames, output_dir, day, axis_lims):
 	"""
 	HST view: color groups of particles in different sizes
@@ -18,8 +28,7 @@ def plot_HSTview_colorgroups(filenames, output_dir, day, axis_lims):
 	sid = 4  # starting index of dusts (0-3 are Didymos, Dimorphos, Sun, Earth)
 
 	# Use a colormap to get distinct colors
-	colors = plt.cm.tab20.colors + plt.cm.tab20b.colors + plt.cm.tab20c.colors  # rich palette
-	colors = colors[:N_datasets]  # only take as many as you need
+	colors = color_palette(N_datasets)
 
 	# print datetime
 	start_time = datetime.strptime("2022-09-26 23:17:04.1830", "%Y-%m-%d %H:%M:%S.%f")
@@ -70,22 +79,24 @@ def plot_HSTview_colorgroups(filenames, output_dir, day, axis_lims):
 	render_single_HSTview_colorgroups(0, alpha=alpha)
 
 
-def main_plot(RUN_NUMBERS):
-	day = 14.91  # set the day label
-	RUN_NUMBERS = range(30,44) # select datasets
+def main_plot():
+	day_code = "day_64.44"  # set the day label
+	RUN_NUMBERS = list(range(38, 46))+list(range(48, 51)) # select datasets
 	
-	# data path
-	data_dir = f"/home/linfel/linfel_turbo/rebound_exp/data_high_shortterm_snapshot_data/day{day}"
+	# .pkl snapshots data path
+	data_dir = (f"/home/linfel/linfel_data/data_high_longterm_snapshot_data/"
+							f"{day_code}")
 	filenames = [os.path.join(data_dir, f"{i:03d}_snapshots.pkl") for i in RUN_NUMBERS]
 
 	# Ensure output directory exists for saving frames
-	output_dir = f"/home/linfel/linfel_turbo/rebound_exp/plots/particles_day{day}"
+	output_dir = f"/home/linfel/linfel_data/longterm_anal/{day_code}"
 	os.makedirs(output_dir, exist_ok=True)
 
-	axis_lims = [-2000e3, 2000e3, -2000e3, 2000e3]    # m
+	axis_lims = [-4500e3, 4500e3, -4500e3, 4500e3]    # m
 	#axis_lims = [-28799e3, 28799e3, -28799e3, 28799e3]    # m
 	#axis_lims = [-600e3, 600e3, -600e3, 600e3]
 
+	day = float(day_code.split('_')[1])
 	plot_HSTview_colorgroups(filenames, output_dir, day, axis_lims)
 
 def multi_plots():
@@ -114,6 +125,5 @@ def multi_plots():
 		plot_HSTview_colorgroups(filenames, output_dir, day, axis_lims)
 
 if __name__ == "__main__":
-	multi_plots()
-	#main_plot(range(30,44))
-	#main_plot(range(25,40))
+	#multi_plots()
+	main_plot()

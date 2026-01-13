@@ -78,10 +78,10 @@ def interpolate_particle_position(data1, data2, alpha):
 	# save data to dictionary
 	id_column = matched_ids.reshape(-1, 1)
 	save_data = {
-		"day": day,
-		"Np": len(matched_ids),
+		"day": np.array([day]),  # ensure consistent format convention
+		"Np": np.array([len(matched_ids)]),
 		"radius_dust": r_interp,
-		"p_t": np.hstack([id_column, p_interp_pos])
+		"p_t": [np.hstack([id_column, p_interp_pos])]
 	}
 	
 	return save_data, r1, r2
@@ -91,13 +91,20 @@ def run_batch_interp():
 	"""
 	interpolation between (run_020, run_021), (run_021, run_022), (run_022, run_023), ...
 	"""
-	simu_data_dir = ("/home/linfel/linfel_turbo/rebound_exp/"
-									 "data_high_shortterm_snapshot_data/day5.70")
-	RUN_NUMBERS = list(range(20, 27)) 
+	# input data directory
+	day_code = 'day_64.44'
+	simu_data_dir = (f"/home/linfel/linfel_data/"
+									 f"data_high_longterm_snapshot_data/{day_code}")
+	RUN_NUMBERS = list(range(48,50)) 
 
-	output_dir = (f"/home/linfel/linfel_turbo/rebound_exp/data_high_shortterm_snapshot_data/"
-								f"day5.70_interp_run{RUN_NUMBERS[0]}-{RUN_NUMBERS[-1]+1}")
+	# output directory
+	output_dir = (f"/home/linfel/linfel_data/data_high_longterm_snapshot_data/"
+								f"{day_code}_interp")
 	os.makedirs(output_dir, exist_ok=True)
+	
+	# Interpolation coefficient (0.0 <= alpha <= 0.9)
+	# (0.0 <= alpha <= 1.0) for the last one
+	alpha_arr = np.linspace(0.0, 0.9, 10)
 
 	for run_idx in RUN_NUMBERS:
 		filepath1 = os.path.join(simu_data_dir, f"{run_idx:03d}_snapshots.pkl")
@@ -108,7 +115,8 @@ def run_batch_interp():
 		p_data2 = load_particle_data(filepath2)
 
 		if p_data1 is not None and p_data2 is not None:
-			for alpha in np.linspace(0.0, 0.9, 10):
+			if run_idx==RUN_NUMBERS[-1]: alpha_arr = np.linspace(0.0, 1.0, 11) # the last one
+			for alpha in alpha_arr:
 				# Perform the interpolation
 				data_interp, r_1, r_2 = interpolate_particle_position(p_data1, p_data2, alpha)
 
@@ -120,48 +128,11 @@ def run_batch_interp():
 				print(f"Number of matched particles: {data_interp['Np']}")
 
 				# Save the dictionary using pickle
-				output_name = os.path.join(output_dir, f"{run_idx:03d}{int(alpha*10)}_snapshots.pkl")
+				output_id = int(10*(run_idx + alpha))
+				output_name = os.path.join(output_dir, f"{output_id:03d}_snapshots.pkl")
 				with open(output_name, 'wb') as f:
 					pickle.dump(data_interp, f)
 
 
-def run_one():
-	"""
-	interpolation between (run_020, run_021), (run_021, run_022), (run_022, run_023), ...
-	"""
-	simu_data_dir = ("/home/linfel/linfel_turbo/rebound_exp/"
-									 "data_high_shortterm_snapshot_data/day5.70")
-	RUN_NUMBERS = list(range(27, 28)) 
-
-	output_dir = (f"/home/linfel/linfel_turbo/rebound_exp/data_high_shortterm_snapshot_data/"
-								f"day5.70_interp_run20-27")
-	os.makedirs(output_dir, exist_ok=True)
-
-	for run_idx in RUN_NUMBERS:
-		filepath1 = os.path.join(simu_data_dir, f"{run_idx:03d}_snapshots.pkl")
-		filepath2 = os.path.join(simu_data_dir, f"{run_idx+1:03d}_snapshots.pkl")
-
-		# Load data for two neighboring radius bins
-		p_data1 = load_particle_data(filepath1)
-		p_data2 = load_particle_data(filepath2)
-
-		if p_data1 is not None and p_data2 is not None:
-			alpha=0.0
-			# Perform the interpolation
-			data_interp, r_1, r_2 = interpolate_particle_position(p_data1, p_data2, alpha)
-
-			# Print results
-			print(f"\n{'='*70}")
-			print(f"Radius 1: {r_1:.4e} m, Radius 2: {r_2:.4e} m")
-			print(f"Interpolation coefficient alpha: {alpha}")
-			print(f"Interpolated Radius: {data_interp['radius_dust']:.4e} m")
-			print(f"Number of matched particles: {data_interp['Np']}")
-
-			# Save the dictionary using pickle
-			output_name = os.path.join(output_dir, f"{run_idx:03d}{int(alpha*10)}_snapshots.pkl")
-			with open(output_name, 'wb') as f:
-				pickle.dump(data_interp, f)
-
 if __name__ == "__main__":
 	run_batch_interp()
-	run_one()
