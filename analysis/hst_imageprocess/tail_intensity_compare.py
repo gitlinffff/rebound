@@ -158,7 +158,8 @@ def measure_tail_intensity(image_array_1, image_array_2, extent, nx, ny, output_
 
 	plt.plot(distance_km, intensity_profile_1, 'k-', linewidth=2, label='HST observation')
 	plt.plot(distance_km, intensity_profile_2, 'r--', linewidth=2, label='Model fit')
-	
+	#plt.plot(distance_km, intensity_profile_1, 'ko', markersize=2, label='HST observation')
+
 	plt.xlabel('Distance Along Tail (km)', fontsize=ftsize+2)
 	plt.ylabel('($\log_{10}$ Pixel Value)', fontsize=ftsize)
 	plt.title(f'Intensity Profile Comparison Along Selected Tail Axis', fontsize=ftsize+4)

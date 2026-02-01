@@ -42,7 +42,7 @@ def select_area_and_get_indices(image_array, extent, nx, ny, mask_filepath=None)
     # --- Start Interactive Drawing ---
     fig, ax = plt.subplots(figsize=(10, 10))
     # Display the original (not log10) data for visual selection if possible, or use log10_hst
-    ax.imshow(image_array, origin='lower', cmap='gray', vmin=-14, vmax=-4, extent=extent)
+    ax.imshow(image_array, origin='lower', cmap='cividis', vmin=-14, vmax=np.nanmax(image_array), extent=extent)
     ax.set_title('Click to define polygon vertices. Press Enter when finished.')
     plt.show(block=False) 
     
@@ -225,13 +225,3 @@ def plot_selected_region(log10_hst, polygon_mask_1d, extent, output_dir, day_cod
     plt.savefig(filename, dpi=300, bbox_inches='tight')
     print(f"Plot of selected region saved to: {filename}")
     plt.close()
-
-# Example of how to call this function in your execution block:
-# Note: You need to decide where to store the polygon points.
-# JSON_FILE = 'tail_polygon_points.json'
-#indices_to_fit, vertices = select_area_and_get_indices(log10_hst_1, extent_1, nx_1, ny_1, json_filepath=JSON_FILE)
-# 
-# if indices_to_fit.size > 0:
-#     # Now you can select the pixels that fall inside the polygon:
-#     # pixels_for_fitting = log10_hst_1[indices_to_fit[0], indices_to_fit[1]]
-#     print(f"\n{pixels_for_fitting.size} pixels selected inside the polygon.")
