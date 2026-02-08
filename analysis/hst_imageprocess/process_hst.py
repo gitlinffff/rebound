@@ -48,7 +48,7 @@ def select_area_and_get_indices(image_array, extent, nx, ny, mask_filepath=None)
     
     print("Click to define vertices. Press Enter (or double-click) to complete the polygon.")
     try:
-        vertices_km = plt.ginput(n=-1, timeout=120, mouse_add=1, mouse_pop=3, mouse_stop=2)
+        vertices_km = plt.ginput(n=-1, timeout=180, mouse_add=1, mouse_pop=3, mouse_stop=2)
         plt.close(fig)
     except RuntimeError:
         print("Selection timed out or window closed.")

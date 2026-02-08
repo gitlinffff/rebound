@@ -9,6 +9,7 @@ from scipy.optimize import least_squares
 import miepython as mie
 import matplotlib.pyplot as plt
 from coordinates import position_dict, day_hstfile_mapping
+from render_synthetic import plot_fitted_image
 
 def process_hst(hst_file, day_code, output_dir):
 	# Load FITS image
@@ -66,7 +67,12 @@ def process_hst(hst_file, day_code, output_dir):
 	return hst_data, log10_hst, x_km, y_km, pixel_km
 
 def process_simu_intensity(simu_data_dir, RUN_NUMBERS, x_km, y_km):
-	au = 1.495978707e11  # m
+	# Parameters
+	m = 1.7 - 0.01j       # refractive index of particle
+	lambda0 = 555.6e-9    # wavelength in vacuum (m)
+	au = 1.495978707e11   # m
+	pixel_arcsec = 0.04   # HST pixel size
+	pixel_fov = np.deg2rad(pixel_arcsec / 3600)  # pixel field of view in rad
 	
 	# matrix convert vector from 'Sun Body Center' to 'Didymos System Barycenter'
 	SBC_rotate_DSB = np.array([[-0.703595792353257, -0.710438191316344, 0.015183454875444],
@@ -79,16 +85,15 @@ def process_simu_intensity(simu_data_dir, RUN_NUMBERS, x_km, y_km):
 	sky_north = np.array([0, np.sin(obliq_earth), np.cos(obliq_earth)])
 	r_sky_north = SBC_rotate_DSB @ sky_north
 
-	# optical parameters
-	m = 1.7 - 0.01j   # refractive index of particle
-	lambda0 = 500e-9  # wavelength in vacuum (m)
-
+	# Bins of the image
 	xedges = x_km * 1e3
 	yedges = y_km * 1e3
 
-	inten_maps = []
+	irrad_maps = []
 	d_away = [] # store distance of cloud of particles to DSB
 	rlist = []
+	Np_list = []
+	
 	# process every dataset
 	for run_idx in RUN_NUMBERS:
 		file = os.path.join(simu_data_dir, f"{run_idx:03d}_snapshots.pkl")
@@ -97,6 +102,7 @@ def process_simu_intensity(simu_data_dir, RUN_NUMBERS, x_km, y_km):
 			data = pickle.load(f)
 			p_t = data['p_t'][0]
 			radius_dust = data['radius_dust']
+			Np = data['Np'][0]
 			day = data['day'][0]
 			print(f"using data {file}  day={day}")
 
@@ -105,7 +111,6 @@ def process_simu_intensity(simu_data_dir, RUN_NUMBERS, x_km, y_km):
 		r_dust = p_t[4:, 1:4]  # [x, y, z] of all dust particles
 		r_sun = p_t[2, 1:4]    # [x, y, z] of the Sun
 
-
 		# =============== particle magnitude =======================
 		# vectors and norms
 		r_dust2earth = r_earth - r_dust
@@ -113,18 +118,24 @@ def process_simu_intensity(simu_data_dir, RUN_NUMBERS, x_km, y_km):
 		d_PC = np.linalg.norm(r_dust2earth, axis=1)
 		d_PS = np.linalg.norm(r_dust2sun, axis=1)
 
+		# Particle single scattering albedo
+		size_para = 2 * np.pi * radius_dust / lambda0
+		qext, qsca, qback, g = mie.efficiencies_mx(m, size_para)
+		omega = qsca/qext
+
 		# phase angle
 		cos_alpha = np.einsum('ij,ij->i', r_dust2sun, r_dust2earth) / (d_PC * d_PS) # cos phase angle
 		alpha = np.degrees(np.arccos(np.clip(cos_alpha, -1.0, 1.0))) # phase angle (degree)
 
 		# magnitude at 1AU from Sun and observer with 0 phase angle
-		m_10 = 5 * np.log10(1329/(2e-3 * radius_dust * np.sqrt(0.15)))
+		m_10 = 5 * np.log10(1329/(2e-3 * radius_dust * np.sqrt(omega)))
 
 		# particle visual magnitude
 		vm = m_10 + 5 * np.log10(d_PC*d_PS/au**2) + 0.013*alpha
 
 		# radiometric flux
-		E_radio = 36.31 * 10 ** ((0.03 - vm)/2.5)
+		E_vega = 3.44e-8  # Vega reference irradiance in visible W m-2 um-1
+		E_radio = E_vega * 10 ** ((0.03 - vm)/2.5)  # W m-2 um-1
 
 		# =============== Project to HST view plane =======================
 		# calculate the two basis vectors of the projection plane
@@ -137,28 +148,35 @@ def process_simu_intensity(simu_data_dir, RUN_NUMBERS, x_km, y_km):
 		x_proj = np.dot(r_dust, l1)    # x coordinate
 		y_proj = np.dot(r_dust, l2)    # y coordinate
 
-		# ===================== create 2D intensity map =======================
-		# Create 2D histogram
-		intensity_map, _, _ = np.histogram2d( # particle density of each pixel
+		# ===================== create 2D irradiance map =======================
+		# 2D irradiance map
+		irrad_map, _, _ = np.histogram2d(  # irradiance of each pixel (W m-2 um-1)
 			x_proj,        # x coordinate
 			y_proj,        # y coordinate
 			bins=[xedges, yedges],
 			weights=E_radio,
 			density=False  # Set True if you want normalized density
 		)
-		intensity_map = intensity_map.T
+		irrad_map = irrad_map.T
+
+		# Consider solid angle of pixel to align the unit as HST data
+		# and consider WFC3 F350LP filter
+		E_filter = 2.7554e-8  # W m-2 um-1
+		irrad_map *= (E_filter/E_vega / pixel_fov**2) # W m-2 um-1 sr-1
 
 		# ================== Distance of cloud of dust to DSB ====================
 		dust_bary = np.mean(r_dust, axis=0)  # average position of the dust particles
 		distance_to_DSB = np.linalg.norm(dust_bary)
 
 		# record the results
-		inten_maps.append(intensity_map)
+		irrad_maps.append(irrad_map)
 		rlist.append(radius_dust)
+		Np_list.append(Np)
 		d_away.append(distance_to_DSB)
 
-	sim_stack = np.stack(inten_maps, axis=-1)            # shape: (ny, nx, n_sizes)
-	return sim_stack, np.array(rlist), np.array(d_away)
+	sim_stack = np.stack(irrad_maps, axis=-1)  # shape: (ny, nx, n_sizes)
+	
+	return sim_stack, np.array(rlist), np.array(d_away), np.array(Np_list)
 
 def residuals(weights, I_models, I_obs):
     # weights can't be negative
@@ -253,7 +271,7 @@ def fit_weight(simu, obsr, polygon_mask_1d):
 	# 5. Extract the standard errors (square root of the diagonal elements)
 	weight_errors = np.sqrt(np.diag(C))    
 
-	# calculate weighted fitting values
+	# Calculate final results
 	I_fit = (fit_input_X @ final_weights).reshape(np.shape(simu)[:2])
 
 	return final_weights, weight_errors, I_fit
@@ -312,37 +330,6 @@ def fitting_scatterplot(I_fit, obsr, output_dir):
 	plt.grid(True, linestyle='--', alpha=0.3)
 
 	plt.savefig(os.path.join(output_dir,'modelfit_scatterplot_.png'), dpi=300, bbox_inches='tight')
-	#plt.show()
-	plt.close()
-
-def plot_fitted_image(I_fit, pixel_km, output_dir):
-	# axes scale
-	ny, nx = I_fit.shape
-	x_km = np.arange(nx+1) * pixel_km
-	y_km = np.arange(ny+1) * pixel_km
-	
-	# Create meshgrid for bin edges
-	X, Y = np.meshgrid(x_km, y_km)   # km
-
-	# Plot pcolormesh
-	plt.figure(figsize=(8, 8))
-
-	log10_fit = np.log10(I_fit + 1e-20)
-	pc = plt.pcolormesh(X, Y, log10_fit, cmap='cividis', shading='auto', vmin=-10, vmax=np.nanmax(log10_fit))
-
-	plt.xlabel('Projected X [km]')
-	plt.ylabel('Projected Y [km]')
-	plt.title('Intensity Fitting on View Plane')
-	plt.grid(True, linestyle='--', linewidth=0.1, color='red', alpha=0.7)
-	plt.gca().set_aspect('equal', adjustable='box')
-
-	# Colorbar
-	cbar = plt.colorbar(pc, orientation='horizontal', pad=0.1, shrink=0.5, aspect=30)
-	cbar.set_label(r'$\log_{10}$(Nondimensional Intensity)')
-
-	plt.tight_layout()
-	output_name = os.path.join(output_dir, "fitted_image.png")
-	plt.savefig(output_name, dpi=300, bbox_inches='tight', pad_inches=0.1)
 	#plt.show()
 	plt.close()
 
@@ -456,17 +443,17 @@ def load_array_from_h5(file_path, data_name):
 	return loaded_data
 # ==================================================================
 
-def simple_run(day_code, start=200, end=300, remark=""):
+def simple_run(day_code, start=200, stop=300, step=1, remark=""):
 	# configure file paths
 	HST_FILE = os.path.join("/home/linfel/linfel_data/hst_raw_JianyangLi/", day_hstfile_mapping[day_code])
 	
 	SIMU_DATA_DIR = ("/home/linfel/linfel_data/"
 									 f"data_high_shortterm_snapshot_data/{day_code}_interp")
-	RUN_NUMBERS = range(start, end+1)
+	RUN_NUMBERS = range(start, stop+1, step)
 	
-	MASK_FILE = f"/home/linfel/linfel_data/shortterm_anal/{day_code}/hst_region_1dmask.npy"
+	MASK_FILE = f"/home/linfel/linfel_data/shortterm_anal/{day_code}/clip_hst_1dmask_nucleus_removed.npy"
 	
-	OUTPUT_DIR = f"/home/linfel/linfel_data/shortterm_anal/{day_code}_{start}-{end}"
+	OUTPUT_DIR = f"/home/linfel/linfel_data/shortterm_anal/{day_code}_fabio_nucleus_removed_albedo/{day_code}_{start}-{stop}"
 	if remark!="": OUTPUT_DIR += f"_{remark}"
 	os.makedirs(OUTPUT_DIR, exist_ok=True)
 	
@@ -474,7 +461,7 @@ def simple_run(day_code, start=200, end=300, remark=""):
 	hst_data, log10_hst, x_km, y_km, pixel_km = process_hst(HST_FILE, day_code, OUTPUT_DIR)
 
 	# calculate intensity from simulation results
-	sim_stack, radius, distance_away = process_simu_intensity(SIMU_DATA_DIR, RUN_NUMBERS, x_km, y_km)
+	sim_stack, radius, distance_away, Np = process_simu_intensity(SIMU_DATA_DIR, RUN_NUMBERS, x_km, y_km)
 	
 	# plot distance-away with radius
 	#plot_x_r(radius[:-6], distance_away[:-6], OUTPUT_DIR)
@@ -488,16 +475,19 @@ def simple_run(day_code, start=200, end=300, remark=""):
 	weights, errors, I_fit = fit_weight(sim_stack, hst_data, roi_flat)
 	
 	# save the data
-	np.savetxt(os.path.join(OUTPUT_DIR, 'w_r.csv'), np.array([radius, weights, errors]).T, fmt='%.8e', delimiter=',')
+	np.savetxt(os.path.join(OUTPUT_DIR, 'w_r.csv'), np.array([radius, weights, errors, Np]).T, fmt='%.8e', delimiter=',')
 	save_array_to_h5(os.path.join(OUTPUT_DIR, 'I_fit.h5'), 'intensity', I_fit)
 	
 	loaded_I_fit = load_array_from_h5(os.path.join(OUTPUT_DIR, 'I_fit.h5'), 'intensity')
 	is_identical = np.allclose(I_fit, loaded_I_fit, rtol=1e-14, atol=1e-14)
 	print(f"Verification: Are original and loaded arrays identical? {is_identical}")
 
+	# Calculate total mass of ejecta tail
+	constrain_mass(output_dir)
+
 	# make plots
 	fitting_scatterplot(I_fit, hst_data, OUTPUT_DIR)
-	plot_fitted_image(I_fit, pixel_km, OUTPUT_DIR)
+	plot_fitted_image(I_fit, pixel_km, -8, OUTPUT_DIR)
 	plot_w_r(radius, weights, errors, OUTPUT_DIR)
 
 def fit_different_regions():
@@ -576,39 +566,39 @@ def w_r_from_txt():
 	plot_w_r(data[:,0], data[:,1], data[:,2],
 	         f"/home/linfel/linfel_data/shortterm_anal/day_5.70_200-360_fabio", segments=segments)
 
-def constrain_mass():
-  # simulation data
-	simu_data_dir = "/home/linfel/linfel_turbo/rebound_exp/data_high_longterm_snapshot_data"
-	RUN_NUMBERS = range(37, 44)
-
+def constrain_mass(wdir):
 	# density of dust particle
 	rho = 3000  # kg/m3
-	
+
 	# read fitted weights
-	wt_data = np.genfromtxt(f"/home/linfel/linfel_turbo/rebound_exp/fit_regions_test3/region1/w_r.csv", delimiter=',')
-	radius_to_weight_map = dict(zip(wt_data[:, 0], wt_data[:, 1]))
+	wt_data = np.genfromtxt(os.path.join(wdir, "w_r.csv"), delimiter=',')
 
 	# calculate total mass
-	tot_mass = 0.
-	for run_idx in RUN_NUMBERS:
-		file = os.path.join(simu_data_dir, f"{run_idx:03d}_snapshots.pkl")
-		# Read particle data
-		with open(file, 'rb') as f:
-			data = pickle.load(f)
-			Np = data['Np'][0]
-			radius_dust = data['radius_dust']
-			day = data['day'][0]
-		
-		wt = radius_to_weight_map[radius_dust]
-		print(f"Using data {file}\n day={day:.2f}   Np={Np}   radius={radius_dust:.3e}   weight={wt:.3e}\n")
-		tot_mass += Np * wt * rho * 4/3 * np.pi * radius_dust**3
-	print(f"Total mass: {tot_mass:.2e} kg")
+	rp = wt_data[:, 0]
+	wt = wt_data[:, 1]
+	Np = wt_data[:, 3]
+	tot_mass = np.sum(Np * wt * rho * 4/3 * np.pi * rp**3)
+
+	with open(os.path.join(wdir, "tot_mass.txt"), "a") as f:
+		f.write(f"Total mass:{tot_mass:.4e} kg\n")
 
 if __name__ == "__main__":
-	simple_run("day_11.86", start=260, end=380, remark="fabio")
-	simple_run("day_11.86", start=260, end=430, remark="fabio")
-	simple_run("day_11.86", start=260, end=480, remark="fabio")
+	simple_run("day_11.86", start=260, stop=380, step=8, remark="step8")
+	simple_run("day_11.86", start=260, stop=430, step=8, remark="step8")
+	simple_run("day_11.86", start=260, stop=480, step=8, remark="step8")
+	
+	simple_run("day_11.86", start=260, stop=380, step=4, remark="step4")
+	simple_run("day_11.86", start=260, stop=430, step=4, remark="step4")
+	simple_run("day_11.86", start=260, stop=480, step=4, remark="step4")
+	
+	simple_run("day_11.86", start=260, stop=380, step=2, remark="step2")
+	simple_run("day_11.86", start=260, stop=430, step=2, remark="step2")
+	simple_run("day_11.86", start=260, stop=480, step=2, remark="step2")
+	
+	simple_run("day_11.86", start=260, stop=380, step=1, remark="step1")
+	simple_run("day_11.86", start=260, stop=430, step=1, remark="step1")
+	simple_run("day_11.86", start=260, stop=480, step=1, remark="step1")
 	#fit_different_regions()
 	#w_r_from_txt()
-	#constrain_mass()
+	#constrain_mass_2()
 	#get_HST_image()

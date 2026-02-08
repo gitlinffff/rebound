@@ -1,27 +1,17 @@
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import fits
-from coordinates import position_dict
+from coordinates import position_dict, day_hstfile_mapping
 from scipy.ndimage import map_coordinates
 
 # --- 1. Load the Image Data (Placeholder) ---
-# Replace this section with the code that loads your 2000x2000 pixel data array.
-# The image you provided is a log-scaled plot, so the array should contain the 
-# raw log10(Pixel Value) data, or the original intensity values.
-
-# For this example, we'll create a fake 2000x2000 array to simulate the image data.
-# ASSUMPTION: 'image_data' is a 2D NumPy array (2000, 2000) containing 
-# the log10(Pixel Value) data displayed in your plot.
-
-# --- Replace this placeholder with your actual image data loading ---
-# Example: image_data = np.load('your_hst_data.npy')
-# OR if you are loading the image file itself and need to extract the array:
-# from PIL import Image
-# img = Image.open('hst_image_day_64.44.jpg').convert('L') 
-# image_data = np.array(img.getdata()).reshape(img.size) # This only gets visual data.
-# You MUST use the astronomical data array (FITS/HDF5) that generated the plot.
 # Load FITS image
-with fits.open('/home/linfel/linfel_data/hst_raw_JianyangLi/16674/stack_18_long.fits.fits') as hdul:
+day_code = "day_14.91"
+hst_file = os.path.join("/home/linfel/linfel_data/hst_raw_JianyangLi/", day_hstfile_mapping[day_code])
+
+
+with fits.open(hst_file) as hdul:
     hst_data = hdul[0].data  # assuming image is in HDU 0
     header = hdul[0].header
 
@@ -32,11 +22,10 @@ utc_mid = header.get('UTC-MID', 'N/A')
 # clean data, set background to 1e-20, and logarithmic brightness scale
 hst_data[hst_data < 0] = 0
 hst_data[np.isnan(hst_data)] = 0
-log10_hst = np.log10(hst_data + 1e-20)
 
 # coordinates are in 'Sun Body Center'
-r_Didy_sys_bary = position_dict['Didy_sys_bary']['day_5.70']
-r_Hubble = position_dict['Hubble']['day_5.70']
+r_Didy_sys_bary = position_dict['Didy_sys_bary'][day_code]
+r_Hubble = position_dict['Hubble'][day_code]
 target_distance = np.linalg.norm(r_Didy_sys_bary - r_Hubble)  # km
 
 # Hubble pixel size
@@ -51,16 +40,6 @@ x_km = np.arange(nx+1) * pixel_km
 y_km = np.arange(ny+1) * pixel_km
 x_km = x_km - x_km[-1]/2
 y_km = y_km - y_km[-1]/2
-# -------------------------------------------------------------------
-
-# Placeholder: Create a noisy array with a simulated dust tail (for testing)
-#IMAGE_SIZE = 100
-#image_data = np.random.normal(loc=-13, scale=0.5, size=(IMAGE_SIZE, IMAGE_SIZE))
-## Add a bright 'tail' diagonally
-#y, x = np.mgrid[0:IMAGE_SIZE, 0:IMAGE_SIZE]
-#center = IMAGE_SIZE // 2
-#tail_brightness = np.exp(-((x - center) * 0.005 + (y - center) * 0.005)**2 / 0.1) * 10 
-#image_data += tail_brightness 
 # -------------------------------------------------------------------
 
 # Determine the extent of the image for correct plotting (from your axes)
@@ -83,7 +62,9 @@ def measure_tail_intensity(image_array, extent):
     fig, ax = plt.subplots(figsize=(10, 10))
 
     # Display the image using the defined extent
-    img_plot = ax.imshow(image_array, origin='lower', cmap='gray', vmin=-14, vmax=-4, extent=extent)
+    log10_array = np.log10(image_array + 1e-20)
+    img_plot = ax.imshow(log10_array, origin='lower', cmap='cividis', vmin=-14,
+                         vmax=-4, extent=extent)
     
     # Add colorbar
     cbar = fig.colorbar(img_plot, ax=ax, orientation='horizontal', fraction=0.046, pad=0.04)
@@ -103,7 +84,7 @@ def measure_tail_intensity(image_array, extent):
     # Get user input for two points (returns list of tuples: [(x1, y1), (x2, y2)])
     # The coordinates returned are in the plot's data units (km)
     try:
-        points = plt.ginput(2, timeout=30)
+        points = plt.ginput(2, timeout=120)
         plt.close(fig) # Close the image window after selection
     except RuntimeError:
         print("\nSelection timed out or window closed.")
@@ -157,7 +138,7 @@ def measure_tail_intensity(image_array, extent):
     plt.figure(figsize=(10, 6))
     
     # Plot the sampled log10(Pixel Value) against distance along the tail
-    plt.plot(np.log10(distance_km), intensity_profile, 'r-', linewidth=2)
+    plt.loglog(distance_km, intensity_profile, 'r-', linewidth=2)
     plt.xlabel('Log10 Distance Along Tail (km)')
     plt.ylabel('Measured Intensity ($\log_{10}$ Pixel Value)')
     plt.title(f'Intensity Profile Along Selected Tail Axis')
@@ -166,4 +147,4 @@ def measure_tail_intensity(image_array, extent):
     plt.show()
 
 # Execute the function
-measure_tail_intensity(log10_hst, extent)
+measure_tail_intensity(hst_data, extent)

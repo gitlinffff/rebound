@@ -44,21 +44,26 @@ def plot_fitted_image(I_fit, pixel_km, vmin, output_dir):
 
   # Colorbar
   cbar = plt.colorbar(pc, orientation='horizontal', pad=0.1, shrink=0.5, aspect=30)
-  cbar.set_label(r'(Nondimensional Intensity)')
+  cbar.set_label(r'$\log_{10}$(Brightness) [$W m_{-2} um_{-1} sr_{-1}$]')
 
   plt.tight_layout()
-  output_name = os.path.join(output_dir, f"fitted_image_l_{vmin}.png")
+  output_name = os.path.join(output_dir, f"fitted_image_vmin{vmin}.png")
   plt.savefig(output_name, dpi=300, bbox_inches='tight', pad_inches=0.1)
   #plt.show()
   plt.close()
 
 
-day_code = "day_64.44"
-wdir = "/home/linfel/linfel_data/longterm_anal/day_64.44_380-500"
-pixel_km = get_hubble_pixel_km(day_code)
-I_fit = load_array_from_h5(os.path.join(wdir, 'I_fit.h5'), 'intensity')
+def main():
+	day_code = "day_64.44"
+	wdir = "/home/linfel/linfel_data/longterm_anal/day_64.44_380-500"
+	pixel_km = get_hubble_pixel_km(day_code)
+	I_fit = load_array_from_h5(os.path.join(wdir, 'I_fit.h5'), 'intensity')
 
-vmin = [-7,-6,-5,-4,-3]
-#vmin=[-4.8]
-for value in vmin:
-	plot_fitted_image(I_fit, pixel_km, value, wdir)
+	vmin = [-7,-6,-5,-4,-3]
+	#vmin=[-4.8]
+	for value in vmin:
+		plot_fitted_image(I_fit, pixel_km, value, wdir)
+
+
+if __name__ == "__main__":
+	main()
