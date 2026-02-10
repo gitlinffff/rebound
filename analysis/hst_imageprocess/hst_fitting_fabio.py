@@ -1,3 +1,5 @@
+# Fit HST image using Fabio's method for scattering calculation.
+
 import time
 import os, pickle
 import h5py
@@ -456,47 +458,47 @@ def load_array_from_h5(file_path, data_name):
 
 def simple_run(day_code, start=200, end=300, remark=""):
 	# configure file paths
-	hst_file = os.path.join("/home/linfel/linfel_data/hst_raw_JianyangLi/", day_hstfile_mapping[day_code])
+	HST_FILE = os.path.join("/home/linfel/linfel_data/hst_raw_JianyangLi/", day_hstfile_mapping[day_code])
 	
-	simu_data_dir = ("/home/linfel/linfel_data/"
+	SIMU_DATA_DIR = ("/home/linfel/linfel_data/"
 									 f"data_high_shortterm_snapshot_data/{day_code}_interp")
 	RUN_NUMBERS = range(start, end+1)
 	
-	mask_filepath = f"/home/linfel/linfel_data/shortterm_anal/{day_code}/hst_region_1dmask.npy"
+	MASK_FILE = f"/home/linfel/linfel_data/shortterm_anal/{day_code}/hst_region_1dmask.npy"
 	
-	output_dir = f"/home/linfel/linfel_data/shortterm_anal/{day_code}_{start}-{end}"
-	if remark!="": output_dir += f"_{remark}"
-	os.makedirs(output_dir, exist_ok=True)
+	OUTPUT_DIR = f"/home/linfel/linfel_data/shortterm_anal/{day_code}_{start}-{end}"
+	if remark!="": OUTPUT_DIR += f"_{remark}"
+	os.makedirs(OUTPUT_DIR, exist_ok=True)
 	
 	# process HST image
-	hst_data, log10_hst, x_km, y_km, pixel_km = process_hst(hst_file, day_code, output_dir)
+	hst_data, log10_hst, x_km, y_km, pixel_km = process_hst(HST_FILE, day_code, OUTPUT_DIR)
 
 	# calculate intensity from simulation results
-	sim_stack, radius, distance_away = process_simu_intensity(simu_data_dir, RUN_NUMBERS, x_km, y_km)
+	sim_stack, radius, distance_away = process_simu_intensity(SIMU_DATA_DIR, RUN_NUMBERS, x_km, y_km)
 	
 	# plot distance-away with radius
-	#plot_x_r(radius[:-6], distance_away[:-6], output_dir)
-	#plot_x_r(radius, distance_away, output_dir)
+	#plot_x_r(radius[:-6], distance_away[:-6], OUTPUT_DIR)
+	#plot_x_r(radius, distance_away, OUTPUT_DIR)
 	#return
 
-	# load the selected region
-	polygon_mask_1d = np.load(mask_filepath)
+	# load the 1D flat ROI (Region of Interest)
+	roi_flat = np.load(MASK_FILE)
 	
 	# fit the weights
-	weights, errors, I_fit = fit_weight(sim_stack, hst_data, polygon_mask_1d)
+	weights, errors, I_fit = fit_weight(sim_stack, hst_data, roi_flat)
 	
 	# save the data
-	np.savetxt(os.path.join(output_dir, 'w_r.csv'), np.array([radius, weights, errors]).T, fmt='%.8e', delimiter=',')
-	save_array_to_h5(os.path.join(output_dir, 'I_fit.h5'), 'intensity', I_fit)
+	np.savetxt(os.path.join(OUTPUT_DIR, 'w_r.csv'), np.array([radius, weights, errors]).T, fmt='%.8e', delimiter=',')
+	save_array_to_h5(os.path.join(OUTPUT_DIR, 'I_fit.h5'), 'intensity', I_fit)
 	
-	loaded_I_fit = load_array_from_h5(os.path.join(output_dir, 'I_fit.h5'), 'intensity')
+	loaded_I_fit = load_array_from_h5(os.path.join(OUTPUT_DIR, 'I_fit.h5'), 'intensity')
 	is_identical = np.allclose(I_fit, loaded_I_fit, rtol=1e-14, atol=1e-14)
 	print(f"Verification: Are original and loaded arrays identical? {is_identical}")
 
 	# make plots
-	fitting_scatterplot(I_fit, hst_data, output_dir)
-	plot_fitted_image(I_fit, pixel_km, output_dir)
-	plot_w_r(radius, weights, errors, output_dir)
+	fitting_scatterplot(I_fit, hst_data, OUTPUT_DIR)
+	plot_fitted_image(I_fit, pixel_km, OUTPUT_DIR)
+	plot_w_r(radius, weights, errors, OUTPUT_DIR)
 
 def fit_different_regions():
 	day_code = "day_64.44"
