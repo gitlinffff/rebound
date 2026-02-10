@@ -10,6 +10,7 @@ import miepython as mie
 import matplotlib.pyplot as plt
 from coordinates import position_dict, day_hstfile_mapping
 from render_synthetic import plot_fitted_image
+from divide_ejectacone import map_radial_particle_groups
 
 def process_hst(hst_file, day_code, output_dir):
 	# Load FITS image
@@ -66,7 +67,7 @@ def process_hst(hst_file, day_code, output_dir):
 
 	return hst_data, log10_hst, x_km, y_km, pixel_km
 
-def process_simu_intensity(simu_data_dir, RUN_NUMBERS, x_km, y_km):
+def process_simu_intensity(simu_data_dir, RUN_NUMBERS, x_km, y_km, ids_by_bin):
 	# Parameters
 	m = 1.7 - 0.01j       # refractive index of particle
 	lambda0 = 555.6e-9    # wavelength in vacuum (m)
@@ -148,28 +149,34 @@ def process_simu_intensity(simu_data_dir, RUN_NUMBERS, x_km, y_km):
 		x_proj = np.dot(r_dust, l1)    # x coordinate
 		y_proj = np.dot(r_dust, l2)    # y coordinate
 
-		# ===================== create 2D irradiance map =======================
-		# 2D irradiance map
-		irrad_map, _, _ = np.histogram2d(  # irradiance of each pixel (W m-2 um-1)
-			x_proj,        # x coordinate
-			y_proj,        # y coordinate
-			bins=[xedges, yedges],
-			weights=E_radio,
-			density=False  # Set True if you want normalized density
-		)
-		irrad_map = irrad_map.T
+		# ===== Loop over each radial binned group to create 2D irradiance map ====
+		for bin_num, stored_ids in ids_by_bin.items():
+			bin_mask = np.isin(p_t[4:, 0].astype(np.int64), stored_ids)
+			x_bin_dust = x_proj[bin_mask]; y_bin_dust = y_proj[bin_mask]
+			E_bin_radio = E_radio[bin_mask]
 
-		# Consider solid angle of pixel to align the unit as HST data
-		# and consider WFC3 F350LP filter
-		E_filter = 2.7554e-8  # W m-2 um-1
-		irrad_map *= (E_filter/E_vega / pixel_fov**2) # W m-2 um-1 sr-1
+			# 2D irradiance map on the projected view plane
+			irrad_map, _, _ = np.histogram2d(  # irradiance of each pixel (W m-2 um-1)
+				x_bin_dust,        # x coordinate
+				y_bin_dust,        # y coordinate
+				bins=[xedges, yedges],
+				weights=E_bin_radio,
+				density=False  # Set True if you want normalized density
+			)
+			irrad_map = irrad_map.T
+
+			# Consider solid angle of pixel to align the unit as HST data
+			# and consider WFC3 F350LP filter
+			E_filter = 2.7554e-8  # W m-2 um-1
+			irrad_map *= (E_filter/E_vega / pixel_fov**2) # W m-2 um-1 sr-1
+			
+			irrad_maps.append(irrad_map)
 
 		# ================== Distance of cloud of dust to DSB ====================
 		dust_bary = np.mean(r_dust, axis=0)  # average position of the dust particles
 		distance_to_DSB = np.linalg.norm(dust_bary)
 
 		# record the results
-		irrad_maps.append(irrad_map)
 		rlist.append(radius_dust)
 		Np_list.append(Np)
 		d_away.append(distance_to_DSB)
@@ -450,6 +457,8 @@ def simple_run(day_code, start=200, stop=300, step=1, remark=""):
 	SIMU_DATA_DIR = ("/home/linfel/linfel_data/"
 									 f"data_high_shortterm_snapshot_data/{day_code}_interp")
 	RUN_NUMBERS = range(start, stop+1, step)
+
+	DAY0_FILE = "/home/linfel/linfel_data/data_high_shortterm_snapshot_data/day_0/001_snapshots.pkl"
 	
 	MASK_FILE = f"/home/linfel/linfel_data/shortterm_anal/{day_code}/clip_hst_1dmask_nucleus_removed.npy"
 	
@@ -460,8 +469,11 @@ def simple_run(day_code, start=200, stop=300, step=1, remark=""):
 	# process HST image
 	hst_data, log10_hst, x_km, y_km, pixel_km = process_hst(HST_FILE, day_code, OUTPUT_DIR)
 
+	# get particle radial groups from day_0 data
+	rgs = map_radial_particle_groups(DAY0_FILE)
+
 	# calculate intensity from simulation results
-	sim_stack, radius, distance_away, Np = process_simu_intensity(SIMU_DATA_DIR, RUN_NUMBERS, x_km, y_km)
+	sim_stack, radius, distance_away, Np = process_simu_intensity(SIMU_DATA_DIR, RUN_NUMBERS, x_km, y_km, rgs)
 	
 	# plot distance-away with radius
 	#plot_x_r(radius[:-6], distance_away[:-6], OUTPUT_DIR)
