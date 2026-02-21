@@ -21,7 +21,7 @@ def process_hst(hst_file, day_code, output_dir):
 	# Show metadata
 	orientat = header.get('ORIENTAT', 'N/A')
 	utc_mid = header.get('UTC-MID', 'N/A')
-	print(f"HST image metadata:\n orientation: {orientat}\n time: {utc_mid}")
+	print(f"HST image metadata:\n orientation: {orientat}\n time: {utc_mid}", flush=True)
 
 	# clean data, set background to 1e-20, and logarithmic brightness scale
 	hst_data[hst_data < 0] = 0
@@ -94,7 +94,8 @@ def process_simu_intensity(simu_data_dir, RUN_NUMBERS, x_km, y_km, ids_by_bin):
 	d_away = [] # store distance of cloud of particles to DSB
 	rlist = []
 	Np_list = []
-	
+	blist = []
+
 	# process every dataset
 	for run_idx in RUN_NUMBERS:
 		file = os.path.join(simu_data_dir, f"{run_idx:03d}_snapshots.pkl")
@@ -150,7 +151,7 @@ def process_simu_intensity(simu_data_dir, RUN_NUMBERS, x_km, y_km, ids_by_bin):
 		y_proj = np.dot(r_dust, l2)    # y coordinate
 
 		# ===== Loop over each radial binned group to create 2D irradiance map ====
-		for bin_num, stored_ids in ids_by_bin.items():
+		for bin_num, stored_ids in sorted(ids_by_bin.items()):
 			bin_mask = np.isin(p_t[4:, 0].astype(np.int64), stored_ids)
 			x_bin_dust = x_proj[bin_mask]; y_bin_dust = y_proj[bin_mask]
 			E_bin_radio = E_radio[bin_mask]
@@ -171,19 +172,20 @@ def process_simu_intensity(simu_data_dir, RUN_NUMBERS, x_km, y_km, ids_by_bin):
 			irrad_map *= (E_filter/E_vega / pixel_fov**2) # W m-2 um-1 sr-1
 			
 			irrad_maps.append(irrad_map)
+			rlist.append(radius_dust)
+			Np_list.append(len(x_bin_dust))
+			blist.append(bin_num)
 
 		# ================== Distance of cloud of dust to DSB ====================
 		dust_bary = np.mean(r_dust, axis=0)  # average position of the dust particles
 		distance_to_DSB = np.linalg.norm(dust_bary)
 
 		# record the results
-		rlist.append(radius_dust)
-		Np_list.append(Np)
 		d_away.append(distance_to_DSB)
 
 	sim_stack = np.stack(irrad_maps, axis=-1)  # shape: (ny, nx, n_sizes)
 	
-	return sim_stack, np.array(rlist), np.array(d_away), np.array(Np_list)
+	return sim_stack, np.array(rlist), np.array(d_away), np.array(Np_list), np.array(blist)
 
 def residuals(weights, I_models, I_obs):
     # weights can't be negative
@@ -227,10 +229,10 @@ def fit_weight(simu, obsr, polygon_mask_1d):
 	# The f-string formatting aligns the text and numbers into clean columns.
 	# :<20 means left-align in a 20-character space.
 	# :>15.2e means right-align in a 15-character space, formatted in scientific notation with 2 decimals.
-	print(f"{'':<20} {'min':>15} {'max':>15}")
-	print("-" * 55) # Optional: adds a separator line for clarity
-	print(f"{'Simulation':<20} {sim_min:>15.2e} {sim_max:>15.2e}")
-	print(f"{'HST Observation':<20} {hst_min:>15.2e} {hst_max:>15.2e}")
+	print(f"{'':<20} {'min':>15} {'max':>15} \n",
+	      f"{'-'*55} \n", # Optional: adds a separator line for clarity
+	      f"{'Simulation':<20} {sim_min:>15.2e} {sim_max:>15.2e} \n",
+	      f"{'HST Observation':<20} {hst_min:>15.2e} {hst_max:>15.2e}", flush=True)
 
 	# set initial weights
 	initial_weights = np.ones(N_basis)
@@ -270,7 +272,7 @@ def fit_weight(simu, obsr, polygon_mask_1d):
 			C = r_variance * J_T_J_inv
 	except np.linalg.LinAlgError:
 			# Handle case where the matrix is singular (no unique inverse)
-			print("Warning: Cannot calculate covariance matrix. J^T J is singular.")
+			print("Warning: Cannot calculate covariance matrix. J^T J is singular.", flush=True)
 			weight_errors = np.full_like(final_weights, np.nan)
 			I_fit = (fit_input_X @ final_weights).reshape(np.shape(simu)[:2])
 			return final_weights, weight_errors, I_fit
@@ -433,7 +435,7 @@ def save_array_to_h5(file_path, data_name, data):
 			compression_opts=4  # sets the compression level (1 is fastest, 9 is highest ratio
 		)
 	end_time = time.time()
-	print(f"{file_path} Save successful in {end_time - start_time:.4f} seconds.")
+	print(f"{file_path} Save successful in {end_time - start_time:.4f} seconds.", flush=True)
 
 def load_array_from_h5(file_path, data_name):
 	start_time = time.time()
@@ -446,7 +448,7 @@ def load_array_from_h5(file_path, data_name):
 		loaded_data = dset[:]
 	
 	end_time = time.time()
-	print(f"Load h5 successful in {end_time - start_time:.4f} seconds.")
+	print(f"Load h5 successful in {end_time - start_time:.4f} seconds.", flush=True)
 	return loaded_data
 # ==================================================================
 
@@ -460,9 +462,9 @@ def simple_run(day_code, start=200, stop=300, step=1, remark=""):
 
 	DAY0_FILE = "/home/linfel/linfel_data/data_high_shortterm_snapshot_data/day_0/001_snapshots.pkl"
 	
-	MASK_FILE = f"/home/linfel/linfel_data/shortterm_anal/{day_code}/clip_hst_1dmask_nucleus_removed.npy"
+	MASK_FILE = f"/home/linfel/linfel_data/shortterm_anal/{day_code}/clip_hst_nucleus_removed_1dmask.npy"
 	
-	OUTPUT_DIR = f"/home/linfel/linfel_data/shortterm_anal/{day_code}_fabio_nucleus_removed_albedo/{day_code}_{start}-{stop}"
+	OUTPUT_DIR = f"/home/linfel/linfel_data/shortterm_anal/{day_code}_fabio_radial_discrete/{day_code}_{start}-{stop}"
 	if remark!="": OUTPUT_DIR += f"_{remark}"
 	os.makedirs(OUTPUT_DIR, exist_ok=True)
 	
@@ -473,7 +475,7 @@ def simple_run(day_code, start=200, stop=300, step=1, remark=""):
 	rgs = map_radial_particle_groups(DAY0_FILE)
 
 	# calculate intensity from simulation results
-	sim_stack, radius, distance_away, Np = process_simu_intensity(SIMU_DATA_DIR, RUN_NUMBERS, x_km, y_km, rgs)
+	sim_stack, radius, distance_away, Np , rgi= process_simu_intensity(SIMU_DATA_DIR, RUN_NUMBERS, x_km, y_km, rgs)
 	
 	# plot distance-away with radius
 	#plot_x_r(radius[:-6], distance_away[:-6], OUTPUT_DIR)
@@ -487,20 +489,24 @@ def simple_run(day_code, start=200, stop=300, step=1, remark=""):
 	weights, errors, I_fit = fit_weight(sim_stack, hst_data, roi_flat)
 	
 	# save the data
-	np.savetxt(os.path.join(OUTPUT_DIR, 'w_r.csv'), np.array([radius, weights, errors, Np]).T, fmt='%.8e', delimiter=',')
+	np.savetxt(os.path.join(OUTPUT_DIR, 'w_r.csv'),
+	          np.array([radius, weights, errors, Np, rgi]).T,
+						fmt='%.8e', delimiter=',',
+						header='radius,weights,errors,Np,radial_group',
+						comments='')
 	save_array_to_h5(os.path.join(OUTPUT_DIR, 'I_fit.h5'), 'intensity', I_fit)
 	
 	loaded_I_fit = load_array_from_h5(os.path.join(OUTPUT_DIR, 'I_fit.h5'), 'intensity')
 	is_identical = np.allclose(I_fit, loaded_I_fit, rtol=1e-14, atol=1e-14)
-	print(f"Verification: Are original and loaded arrays identical? {is_identical}")
+	print(f"Verification: Are original and loaded arrays identical? {is_identical}", flush=True)
 
 	# Calculate total mass of ejecta tail
-	constrain_mass(output_dir)
+	constrain_mass(OUTPUT_DIR)
 
 	# make plots
 	fitting_scatterplot(I_fit, hst_data, OUTPUT_DIR)
 	plot_fitted_image(I_fit, pixel_km, -8, OUTPUT_DIR)
-	plot_w_r(radius, weights, errors, OUTPUT_DIR)
+	#plot_w_r(radius, weights, errors, OUTPUT_DIR)
 
 def fit_different_regions():
 	day_code = "day_64.44"
@@ -583,7 +589,7 @@ def constrain_mass(wdir):
 	rho = 3000  # kg/m3
 
 	# read fitted weights
-	wt_data = np.genfromtxt(os.path.join(wdir, "w_r.csv"), delimiter=',')
+	wt_data = np.genfromtxt(os.path.join(wdir, "w_r.csv"), delimiter=',', skip_header=1)
 
 	# calculate total mass
 	rp = wt_data[:, 0]
@@ -594,23 +600,32 @@ def constrain_mass(wdir):
 	with open(os.path.join(wdir, "tot_mass.txt"), "a") as f:
 		f.write(f"Total mass:{tot_mass:.4e} kg\n")
 
-if __name__ == "__main__":
-	simple_run("day_11.86", start=260, stop=380, step=8, remark="step8")
-	simple_run("day_11.86", start=260, stop=430, step=8, remark="step8")
-	simple_run("day_11.86", start=260, stop=480, step=8, remark="step8")
+def batch_run1():
+	#simple_run("day_11.86", start=260, stop=380, step=8, remark="step8")
+	#simple_run("day_11.86", start=260, stop=430, step=8, remark="step8")
+	#simple_run("day_11.86", start=260, stop=480, step=8, remark="step8")
 	
-	simple_run("day_11.86", start=260, stop=380, step=4, remark="step4")
-	simple_run("day_11.86", start=260, stop=430, step=4, remark="step4")
-	simple_run("day_11.86", start=260, stop=480, step=4, remark="step4")
+	#simple_run("day_11.86", start=260, stop=380, step=4, remark="step4")
+	#simple_run("day_11.86", start=260, stop=430, step=4, remark="step4")
+	#simple_run("day_11.86", start=260, stop=480, step=4, remark="step4")
 	
-	simple_run("day_11.86", start=260, stop=380, step=2, remark="step2")
-	simple_run("day_11.86", start=260, stop=430, step=2, remark="step2")
+	#simple_run("day_11.86", start=260, stop=380, step=2, remark="step2")
+	#simple_run("day_11.86", start=260, stop=430, step=2, remark="step2")
 	simple_run("day_11.86", start=260, stop=480, step=2, remark="step2")
 	
 	simple_run("day_11.86", start=260, stop=380, step=1, remark="step1")
 	simple_run("day_11.86", start=260, stop=430, step=1, remark="step1")
 	simple_run("day_11.86", start=260, stop=480, step=1, remark="step1")
+
+def batch_run2():
+	for step in [8, 4, 2, 1]:
+		for stop in [410, 450]:
+			simple_run("day_14.91", start=270, stop=stop, step=step, remark=f"step{step}")
+
+if __name__ == "__main__":
+	batch_run2()
+	#test_radial()
 	#fit_different_regions()
 	#w_r_from_txt()
-	#constrain_mass_2()
+	#constrain_mass()
 	#get_HST_image()

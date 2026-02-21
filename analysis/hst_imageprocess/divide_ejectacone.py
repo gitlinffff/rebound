@@ -28,25 +28,31 @@ def map_radial_particle_groups(filepath):
 	particles = data_day0['p_t'][0]
 	dimor = particles[1]
 	dust = particles[4:]
-	print(len(dust))
+
 	# distance from Dimorphos
 	ids = dust[:, 0].astype(np.int64)
 	dist = np.linalg.norm(dust[:, 1:4] - dimor[1:4], axis=1)
 
-	# define bins
+	# define bins on count percentile
 	nbins = 5
-	#bins = np.logspace(np.log10(dist.min()), np.log10(dist.max()), num=50)
-	bins = np.linspace(0, 4000, nbins+1)
+	q = np.linspace(0, 100, nbins+1)
+	bins = np.percentile(dist, q) # each bin contains exactly same number of particles
+
+	# define bins on distance
+#	nbins = 5
+#	bins = np.linspace(0., 600., nbins+1)
 
 	if (0):
 		# histogram
 		counts, bin_edges = np.histogram(dist, bins=bins)
 		
-		plt.bar(bin_edges[:-1], counts, 
+		plt.bar(bin_edges[:-1], counts,
+						width=bin_edges[1:] - bin_edges[:-1],
+						align='edge',
 						color='steelblue', edgecolor='black', alpha=0.8)
 		
-		#plt.xscale('log')
-		plt.yscale('log')
+		plt.xscale('log')
+		#plt.yscale('log')
 		plt.xlabel('Distance Bins (Radial from Asteroid)')
 		plt.ylabel('Number of Particles')
 		plt.title(f'Ejecta Particle Distribution\nRange: {dist.min():.1f} to {dist.max():.1f} m')
@@ -64,7 +70,7 @@ def map_radial_particle_groups(filepath):
 	for i in range(1, nbins+1):
 		ids_by_bin[i] = ids[bin_assignments == i]
 		print(f"Bin {i}: {len(ids_by_bin[i])} particles identified.")
-
+	print(f"bins: {bins}")
 	return ids_by_bin
 
 def save_binned_particles(new_filepath, ids_by_bin):
@@ -110,4 +116,4 @@ def save_binned_particles(new_filepath, ids_by_bin):
 
 if __name__ == "__main__":
 	ids_by_bin = map_radial_particle_groups("/home/linfel/linfel_data/data_high_shortterm_snapshot_data/day_0/001_snapshots.pkl")
-	save_binned_particles("/home/linfel/linfel_data/data_high_shortterm_snapshot_data/day_11.86/019_snapshots.pkl", ids_by_bin)
+	#save_binned_particles("/home/linfel/linfel_data/data_high_shortterm_snapshot_data/day_11.86/019_snapshots.pkl", ids_by_bin)

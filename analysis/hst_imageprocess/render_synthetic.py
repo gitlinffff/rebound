@@ -54,13 +54,13 @@ def plot_fitted_image(I_fit, pixel_km, vmin, output_dir):
 
 
 def main():
-	day_code = "day_64.44"
-	wdir = "/home/linfel/linfel_data/longterm_anal/day_64.44_380-500"
+	day_code = "day_14.91"
+	wdir = "/home/linfel/linfel_data/shortterm_anal/day_14.91_fabio_radial_discrete/day_14.91_270-410_step8"
 	pixel_km = get_hubble_pixel_km(day_code)
 	I_fit = load_array_from_h5(os.path.join(wdir, 'I_fit.h5'), 'intensity')
 
 	vmin = [-7,-6,-5,-4,-3]
-	#vmin=[-4.8]
+	vmin = [-8]
 	for value in vmin:
 		plot_fitted_image(I_fit, pixel_km, value, wdir)
 
