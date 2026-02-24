@@ -121,7 +121,8 @@ const double T32 = 0.124915784491013;
 const double T33 = 0.986612735258626;
 
 // define output timing
-static const double output_days[] = {0.0, 64.44, 78.65, 83.77, 92.66, 114.75, 131.29, 153.47, 155.31, 177.46, 198.9, 230.39};
+//static const double output_days[] = {0.0, 64.44, 78.65, 83.77, 92.66, 114.75, 131.29, 153.47, 155.31, 177.46, 198.9, 230.39};
+static const double output_days[] = {0.0, 0.5, 1.0, 2.0, 2.3, 3.0, 3.5};
 
 #define NUM_OUTPUTS (sizeof(output_days) / sizeof(output_days[0]))
 static const int num_outputs = NUM_OUTPUTS;
@@ -156,7 +157,8 @@ int main(int argc, char* argv[]){
 	printf("Running with %d OpenMP threads\n", num_threads);
 	printf("Running with r_dust = %e\n", r_dust);
 	printf("Running with Q_pr = %e\n", Q_pr);
-	printf("Running with tmax = %f\n", tmax);
+	//printf("Running with tmax = %f\n", tmax);
+	printf("Running with tmax = %f\n", 3.5*86400.);
 	printf("Running with dust input file = %s\n", fpath);
 
   // Convert all output_days to seconds
@@ -316,7 +318,11 @@ int main(int argc, char* argv[]){
 	system("rm -v collide.txt");
 
 	reb_simulation_save_to_file_interval(r, "archive.bin", 864000.); // save for restart. 10 days between snapshots
-	reb_simulation_integrate(r, tmax);
+//	reb_simulation_integrate(r, tmax);
+	for (int i = 0; i < num_outputs; i++) {
+			reb_simulation_integrate(r, output_sec[i]);
+			// Force an output here manually to be 100% sure
+	}
 	fprintf(stdout, "\n");
 }
 
@@ -582,7 +588,8 @@ void heartbeat(struct reb_simulation* r){
 	}
 
 //----------------output all particles---------------------
-	if(reb_simulation_output_check(r, next_output_t)){
+//	if(reb_simulation_output_check(r, next_output_t)){
+	if (output_i <= max_index && r->t >= output_sec[output_i] - 1e-6) {
 		struct reb_particle* particles = r->particles;
 		const int N = r->N;
 		double di;
@@ -612,16 +619,12 @@ void heartbeat(struct reb_simulation* r){
 			fwrite( &(p.vz), sizeof(double), 1, fp);
 		}
 		fclose(fp);
-		
-		// Update next output time only when the r->t passes the next target time
-    if (r->t >= next_output_t && output_i <= max_index) {
-      output_i++;
-      if (output_i <= max_index) {
-        next_output_t = output_sec[output_i];
-      } else{
-        next_output_t = tmax * 10.;
-      }
-    }
+
+		// update next output timing
+		output_i++;
+		if (output_i <= max_index) {
+			next_output_t = output_sec[output_i];
+		}
  }
     
 //----------------output orbital parameters--------------------
