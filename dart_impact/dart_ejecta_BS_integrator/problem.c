@@ -322,7 +322,7 @@ int main(int argc, char* argv[]){
 	system("rm -v particles.txt");
 	system("rm -v collide.txt");
 
-	reb_simulation_save_to_file_interval(r, "archive.bin", 2000.); // save for restart. 10 days between snapshots
+	reb_simulation_save_to_file_interval(r, "archive.bin", 864000.); // save for restart. 10 days between snapshots
 	reb_simulation_integrate(r, tmax);
 	fprintf(stdout, "\n");
 }
