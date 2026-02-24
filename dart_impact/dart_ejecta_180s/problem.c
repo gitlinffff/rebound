@@ -120,9 +120,8 @@ const double T31 = -0.104839674791979;
 const double T32 = 0.124915784491013;
 const double T33 = 0.986612735258626;
 
-// define output timing
-//static const double output_days[] = {0.0, 64.44, 78.65, 83.77, 92.66, 114.75, 131.29, 153.47, 155.31, 177.46, 198.9, 230.39};
-static const double output_days[] = {0.0, 0.5, 1.0, 2.0, 2.3, 3.0, 3.5};
+/* define output timing */
+static const double output_days[] = {0.0, 64.44, 78.65, 83.77, 92.66, 114.75, 131.29, 153.47, 155.31, 177.46, 198.9, 230.39};
 
 #define NUM_OUTPUTS (sizeof(output_days) / sizeof(output_days[0]))
 static const int num_outputs = NUM_OUTPUTS;
@@ -135,8 +134,14 @@ static double next_output_t = 0.;
 double dt_minimum = 1.e15;
 
 int main(int argc, char* argv[]){
-	
-	// Parse command-line arguments
+  /* Convert all output_days to seconds */
+  for (int i = 0; i <= max_index; i++) {
+    output_sec[i] = output_days[i] * 86400.0;
+  }
+	tmax = output_sec[max_index];
+  next_output_t = output_sec[0];
+
+	/* Parse command-line arguments */
 	for (int i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "-n") == 0 && i + 1 < argc) {
 			num_threads = atoi(argv[++i]);
@@ -144,28 +149,19 @@ int main(int argc, char* argv[]){
 			r_dust = atof(argv[++i]);
 		} else if (strcmp(argv[i], "-qpr") == 0 && i + 1 < argc) {
 			Q_pr = atof(argv[++i]);
-		} else if (strcmp(argv[i], "-t") == 0 && i + 1 < argc) {
-			tmax = atof(argv[++i]);
 		} else if (strcmp(argv[i], "-f") == 0 && i + 1 < argc) {
 			strncpy(fpath, argv[++i], sizeof(fpath));
 			fpath[sizeof(fpath) - 1] = '\0'; // null-terminate safely
 		} else {
-			fprintf(stderr, "Usage: %s -n <num_threads> -r <r_dust> -qpr <Q_pr> -t <tmax> -f <input_file>\n", argv[0]);
+			fprintf(stderr, "Usage: %s -n <num_threads> -r <r_dust> -qpr <Q_pr> -f <input_file>\n", argv[0]);
 			return 1;
 		}
 	}
 	printf("Running with %d OpenMP threads\n", num_threads);
 	printf("Running with r_dust = %e\n", r_dust);
 	printf("Running with Q_pr = %e\n", Q_pr);
-	//printf("Running with tmax = %f\n", tmax);
-	printf("Running with tmax = %f\n", 3.5*86400.);
+	printf("Running with tmax = %f (automatically set from output_days)\n", tmax);
 	printf("Running with dust input file = %s\n", fpath);
-
-  // Convert all output_days to seconds
-  for (int i = 0; i <= max_index; i++) {
-    output_sec[i] = output_days[i] * 86400.0;
-  }
-  next_output_t = output_sec[0];
 
 	// Set the number of OpenMP threads to be the number of processors
 	//int np = omp_get_num_procs();
