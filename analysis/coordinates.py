@@ -32,6 +32,7 @@ day_time_mapping = {
 	'day_131.29': '2023-Feb-05 06:07:49.2430 UTC',
 }
 
+# Reference frame: Sun (body center) [500@10]
 position_dict = {
 	'Didy_sys_bary': {   # Didymos (system barycenter)
 		'day_0.34':   np.array([ 1.554392749807652E+08, 1.447300466176056E+07, -8.608688932384232E+06]), # km
@@ -64,6 +65,15 @@ position_dict = {
 		'day_83.77':  np.array([ 6.473696951634307E+06, 1.470472060139288E+08, -8.507814275972545E+03]), # km
 		'day_131.29': np.array([-1.058142769367994E+08, 1.027338649631926E+08, -2.109203366145492E+03]), # km
 	},
-
-
 }
+
+# matrix convert vector from 'Sun Body Center' to 'Didymos System Barycenter'
+SBC_rotate_DSB = np.array([[-0.703595792353257, -0.710438191316344, 0.015183454875444],
+                          [ 0.702824020343859, -0.692584740738747,  0.16237232930379 ],
+                          [-0.104839674791979,  0.124915784491013,  0.986612735258626]])
+
+# calculate sky north vector in 'Sun Body Center' and 
+# convert it to 'Didymos System Barycenter' frame
+obliq_earth = np.deg2rad(23.4392911)
+sky_north = np.array([0, np.sin(obliq_earth), np.cos(obliq_earth)])
+r_sky_north = SBC_rotate_DSB @ sky_north
