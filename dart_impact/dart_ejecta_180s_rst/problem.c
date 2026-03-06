@@ -64,7 +64,8 @@ void heartbeat(struct reb_simulation* r);
 int num_threads;
 double r_dust;  // dust particle radius, m -> require to change SRP_coe as well!!!
 double Q_pr;    // reflectivity coefficient of solar radiation pressure
-double tmax; // time to end simulation, seconds
+double bs_eps;  // BS integrator relative and absolute tolerances
+double tmax;    // time to end simulation, seconds
 char fpath[256];// to store input data file path
 
 // Define constants
@@ -120,7 +121,7 @@ const double T31 = -0.104839674791979;
 const double T32 = 0.124915784491013;
 const double T33 = 0.986612735258626;
 
-/* define output timing */
+// define output timing
 static const double output_days[] = {0.0, 64.44, 78.65, 83.77, 92.66, 114.75, 131.29, 153.47, 155.31, 177.46, 198.9, 230.39};
 
 #define NUM_OUTPUTS (sizeof(output_days) / sizeof(output_days[0]))
@@ -134,14 +135,14 @@ static double next_output_t = 0.;
 double dt_minimum = 1.e15;
 
 int main(int argc, char* argv[]){
-  /* Convert all output_days to seconds */
-  for (int i = 0; i <= max_index; i++) {
-    output_sec[i] = output_days[i] * 86400.0;
-  }
+	/* Convert all output_days to seconds */
+	for (int i = 0; i <= max_index; i++) {
+		output_sec[i] = output_days[i] * 86400.0;
+	}
 	tmax = output_sec[max_index];
-  next_output_t = output_sec[0];
+	next_output_t = output_sec[0];
 
-	/* Parse command-line arguments */
+	// Parse command-line arguments
 	for (int i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "-n") == 0 && i + 1 < argc) {
 			num_threads = atoi(argv[++i]);
@@ -153,169 +154,73 @@ int main(int argc, char* argv[]){
 			strncpy(fpath, argv[++i], sizeof(fpath));
 			fpath[sizeof(fpath) - 1] = '\0'; // null-terminate safely
 		} else {
-			fprintf(stderr, "Usage: %s -n <num_threads> -r <r_dust> -qpr <Q_pr> -f <input_file>\n", argv[0]);
+			fprintf(stderr, "Usage: %s -n <num_threads> -r <r_dust> -qpr <Q_pr> -f <rst_archive>\n", argv[0]);
 			return 1;
 		}
 	}
 	printf("Running with %d OpenMP threads\n", num_threads);
-	printf("Running with r_dust = %e\n", r_dust);
+	printf("Running with r_dust = %.8e\n", r_dust);
 	printf("Running with Q_pr = %e\n", Q_pr);
-	printf("Running with tmax = %f (automatically set from output_days)\n", tmax);
-	printf("Running with dust input file = %s\n", fpath);
+	printf("Running with tmax = %.2f\n", tmax);
+	printf("Restarting with archive: %s\n", fpath);
 
 	// Set the number of OpenMP threads to be the number of processors
 	//int np = omp_get_num_procs();
 	omp_set_num_threads(num_threads);
 	
-	// Setup simulation structure and 3D visualization server
-	struct reb_simulation* r = reb_simulation_create();
-	//reb_simulation_start_server(r, 1234);
+	// restart from a specified snapshot
+	struct reb_simulationarchive* archive = reb_simulationarchive_create_from_file(fpath);// "archive.bin"
+	struct reb_simulation* r = reb_simulation_create_from_simulationarchive(archive, -1); // -1 if the last snapshot
+	reb_simulationarchive_free(archive);
 
-	// Setup constants
-	r->integrator          = REB_INTEGRATOR_IAS15;
-	r->dt                  = 1e1;    // Initial timestep, s
-	r->N_active            = 3;     // Only the Sun and the Didymos-Dimorphos system are massive, the dust particles are treated as test particles
+	// print restarting information
+	printf("===========================\nRestarting information:\n");
+	printf("t: %f s = %f day\n", r->t, r->t/86400.);
+	printf("dt: %f\n", r->dt);
+	printf("N_active: %d\n", r->N_active);
+	printf("G: %e\n", r->G);
+	//printf("BS integrator tolerance: %e, %e\n", r->ri_bs.eps_rel, r->ri_bs.eps_abs);
+	printf("integrator = %d\n", r->integrator);
+	struct reb_particle* particles = r->particles;
+	const struct reb_particle p = particles[4];
+	printf("p.r: %.8e\n", p.r);
+	if (p.r != r_dust){
+    char error_msg[70];
+    sprintf(error_msg, "r_dust %.8e does not match with archive %.8e", r_dust, p.r);
+    reb_simulation_error(r, error_msg);
+		return 1;
+	}
+
+	// Handle the case where the simulation ran past the last defined output time
+	if (r->t > output_sec[max_index]) {
+		char error_msg[80];
+		sprintf(error_msg, "All defined output times (up to %.2f seconds) have been passed.\n", output_sec[max_index]);
+		reb_simulation_error(r, error_msg);
+		return 1;
+	}
+
+	// Reset function pointers:
 	r->additional_forces   = force_radiation;
 	r->heartbeat           = heartbeat;
-	r->G                   = G_const;
-	
-	reb_simulation_configure_box(r,sep_system*5.,1,1,1);    
 
-    
-	// Didymos
-	double mass_didy = mass_system*vol_didy/(vol_didy+vol_dimor);
-	double mass_dimor = mass_system*vol_dimor/(vol_didy+vol_dimor);
-	struct reb_particle Didymos = {0};
-	double r_didy_com = -vol_dimor*sep_system/(vol_didy+vol_dimor); // distance of Didymos to center of mass of the system
-	double v_didy_com = sqrt(-r->G*mass_dimor/pow(sep_system,2.0)*r_didy_com);
-	Didymos.m    = mass_didy;
-	Didymos.r    = 850.0/2.0;
-	Didymos.x    = r_didy_com + T11 * (r_DSB_t1.x - r_DSB_t0.x) + T12 * (r_DSB_t1.y - r_DSB_t0.y) + T13 * (r_DSB_t1.z - r_DSB_t0.z);
-	Didymos.y    = 0.0        + T21 * (r_DSB_t1.x - r_DSB_t0.x) + T22 * (r_DSB_t1.y - r_DSB_t0.y) + T23 * (r_DSB_t1.z - r_DSB_t0.z);
-	Didymos.z    = 0.0        + T31 * (r_DSB_t1.x - r_DSB_t0.x) + T32 * (r_DSB_t1.y - r_DSB_t0.y) + T33 * (r_DSB_t1.z - r_DSB_t0.z);
-	Didymos.vx   =              T11 * v_DSB_t1.x + T12 * v_DSB_t1.y + T13 * v_DSB_t1.z;
-	Didymos.vy   = v_didy_com + T21 * v_DSB_t1.x + T22 * v_DSB_t1.y + T23 * v_DSB_t1.z;
-	Didymos.vz   =              T31 * v_DSB_t1.x + T32 * v_DSB_t1.y + T33 * v_DSB_t1.z;
-	Didymos.hash = 1;
-	reb_simulation_add(r, Didymos);
-    
-	// Dimorphos
-	struct reb_particle Dimorphos = {0};
-	double r_dimor_com = vol_didy*sep_system/(vol_didy+vol_dimor);
-	double v_dimor_com = -sqrt(r->G*mass_didy/pow(sep_system,2.0)*r_dimor_com);
-	Dimorphos.m    = mass_dimor;
-	Dimorphos.r    = 175.0/2.0;
-	Dimorphos.x    = r_dimor_com + T11 * (r_DSB_t1.x - r_DSB_t0.x) + T12 * (r_DSB_t1.y - r_DSB_t0.y) + T13 * (r_DSB_t1.z - r_DSB_t0.z);
-	Dimorphos.y    = 0.0         + T21 * (r_DSB_t1.x - r_DSB_t0.x) + T22 * (r_DSB_t1.y - r_DSB_t0.y) + T23 * (r_DSB_t1.z - r_DSB_t0.z);
-	Dimorphos.z    = 0.0         + T31 * (r_DSB_t1.x - r_DSB_t0.x) + T32 * (r_DSB_t1.y - r_DSB_t0.y) + T33 * (r_DSB_t1.z - r_DSB_t0.z);
-	Dimorphos.vx   =               T11 * v_DSB_t1.x + T12 * v_DSB_t1.y + T13 * v_DSB_t1.z;
-	Dimorphos.vy   = v_dimor_com + T21 * v_DSB_t1.x + T22 * v_DSB_t1.y + T23 * v_DSB_t1.z;
-	Dimorphos.vz   =               T31 * v_DSB_t1.x + T32 * v_DSB_t1.y + T33 * v_DSB_t1.z;
-	Dimorphos.hash = 2;
-	reb_simulation_add(r, Dimorphos);
-	
-	// Sun
-	struct reb_particle star = {0};
-	star.m  = mass_star;
-	star.x = - T11 * r_DSB_t0.x - T12 * r_DSB_t0.y - T13 * r_DSB_t0.z;
-	star.y = - T21 * r_DSB_t0.x - T22 * r_DSB_t0.y - T23 * r_DSB_t0.z;
-	star.z = - T31 * r_DSB_t0.x - T32 * r_DSB_t0.y - T33 * r_DSB_t0.z;
-	star.hash = 3;
-	reb_simulation_add(r, star);
+	// --- LOGIC TO RESTART OUTPUT TIMING ---
+	printf("Restarting from simulation time: %.2f days (%.2f seconds)\n", r->t/86400., r->t);
 
-	// Earth (Hubble Space Telescope)
-	struct reb_particle Earth = {0};
-	Earth.m  = 0.;
-	Earth.x = T11 * r_Earth_t1.x + T12 * r_Earth_t1.y + T13 * r_Earth_t1.z + star.x;
-	Earth.y = T21 * r_Earth_t1.x + T22 * r_Earth_t1.y + T23 * r_Earth_t1.z + star.y;
-	Earth.z = T31 * r_Earth_t1.x + T32 * r_Earth_t1.y + T33 * r_Earth_t1.z + star.z;
-	Earth.vx = T11 * v_Earth_t1.x + T12 * v_Earth_t1.y + T13 * v_Earth_t1.z;
-	Earth.vy = T21 * v_Earth_t1.x + T22 * v_Earth_t1.y + T23 * v_Earth_t1.z;
-	Earth.vz = T31 * v_Earth_t1.x + T32 * v_Earth_t1.y + T33 * v_Earth_t1.z;
-	Earth.hash = 4;
-	reb_simulation_add(r, Earth);
+	// Find the next output time index (output_i)
+	for (int i = 0; i <= max_index; i++) {
+		if (output_sec[i] > r->t) {
+			output_i = i;
+			next_output_t = output_sec[i];
+			printf("Resuming output from index: %d\n", output_i);
+			printf("The next scheduled output time is: %.2f days (%.2f seconds)\n", 
+						 next_output_t/86400., next_output_t);
+			break; // Stop when the next future time is found
+		}
+	}
 
-	unsigned int N_particles = 4; // current number of particles (didy, dimor, sun, earth)
-	unsigned int N_scanned = 0;   // record how many particles scanned in the input particle file
-	unsigned int N_didy = 0;      // record initial # of particles within radius of Didymos
-	unsigned int N_dimor = 0;     // record initial # of particles within radius of Dimorphos
-	unsigned int N_hill = 0;      // record initial # of particles farther than Hill radius
-
-  // Dust particles
-  if (1){
-    // open dust particles file
-    FILE *dust_file = fopen(fpath, "r");
-    if (dust_file == NULL) {
-      fprintf(stderr, "Error: Could not open file %s\n", fpath);
-      return 1;
-    }
-
-    // open a file examine the particles that are deleted
-    FILE *f_dp = fopen("deleted_particles.csv", "w");
-    if (f_dp == NULL) {
-      reb_simulation_error(r, "Could not open file: deleted_particles.csv");
-      return 1;
-    }
-
-    double disSQ_Didy, disSQ_Dimor;
-    ReadParticle rp;
-    while (fscanf(dust_file, "%lf %lf %lf %lf %lf %lf %lf %lf %lf",
-      &rp.ID, &rp.x, &rp.y, &rp.z, &rp.vx, &rp.vy, &rp.vz, &rp.mass, &rp.density) == 9) {
-
-      N_scanned++;
-      // rotate the original coordinate system around its y-axis by 180 degree
-      transform(&rp);
-
-      struct reb_particle p = {0};
-      p.m = 0.0;
-      p.r = r_dust;
-      p.x = rp.x + Dimorphos.x;
-      p.y = rp.y + Dimorphos.y;
-      p.z = rp.z + Dimorphos.z;
-      p.vx = rp.vx + Dimorphos.vx;
-      p.vy = rp.vy + Dimorphos.vy;
-      p.vz = rp.vz + Dimorphos.vz;
-
-      disSQ_Didy  = pow(p.x-Didymos.x,2) + pow(p.y-Didymos.y,2) + pow(p.z-Didymos.z,2);
-      disSQ_Dimor = pow(p.x-Dimorphos.x,2) + pow(p.y-Dimorphos.y,2) + pow(p.z-Dimorphos.z,2);
-
-      // skip particles that are farther than hill radius and that make up Didymos or Dimorphos
-      if (disSQ_Didy < Rsq_didy){
-        fprintf(f_dp, "%f,%f,%f,%d\n", rp.x, rp.y, rp.z, 1);
-        N_didy++;
-        continue;
-			}
-      if (disSQ_Dimor < Rsq_dimor){
-        fprintf(f_dp, "%f,%f,%f,%d\n", rp.x, rp.y, rp.z, 2);
-        N_dimor++;
-        continue;
-      }
-      if (disSQ_Didy > Rsq_hill){
-        fprintf(f_dp, "%f,%f,%f,%d\n", rp.x, rp.y, rp.z, 3);
-        N_hill++;
-        continue;
-			}
-
-      N_particles++;
-      p.hash = N_particles;
-      reb_simulation_add(r, p);
-    }
-    fclose(dust_file);
-    fclose(f_dp);
-  }
-
-  fprintf(stdout, "Total # of particles scanned: %i\n", N_scanned);
-  fprintf(stdout, "Total # of particles registered: %i\n", N_particles);
-  fprintf(stdout, "# of particles within Didymos: %i\n", N_didy);
-  fprintf(stdout, "# of particles within Dimorphos: %i\n", N_dimor);
-  fprintf(stdout, "# of particles outside of Hill radius: %i\n", N_hill);
-
-	system("rm -v particles.txt");
-	system("rm -v collide.txt");
-
-	reb_simulation_save_to_file_interval(r, "archive.bin", 864000.); // save for restart. 10 days between snapshots
-//	reb_simulation_integrate(r, tmax);
-	for (int i = 0; i < num_outputs; i++) {
+	// start integration
+	reb_simulation_save_to_file_interval(r, "archive1.bin", 864000.); // save for restart. 10 days between snapshots
+	for (int i = output_i; i < num_outputs; i++) {
 			reb_simulation_integrate(r, output_sec[i]);
 			// Force an output here manually to be 100% sure
 	}
@@ -495,14 +400,13 @@ void reb_simulation_move_to_DidyDimor_com(struct reb_simulation* const r){
 	}
 }
 
-
 void heartbeat(struct reb_simulation* r){
 //----------------track minimum dt--------------------
 	if (r->dt < dt_minimum){
 		dt_minimum = r->dt;
 	}
 	
-//----------------output dt history------------------
+//----------------output dt history-------------------
 	if(reb_simulation_output_check(r, 60.0)){
 		int N_tot = r->N;
 
@@ -582,10 +486,9 @@ void heartbeat(struct reb_simulation* r){
 		//reb_simulation_move_to_hel(r);
 		//reb_move_to_Didymos(r);
 	}
-
+    
 //----------------output all particles---------------------
-//	if(reb_simulation_output_check(r, next_output_t)){
-	if (output_i <= max_index && r->t >= output_sec[output_i] - 1e-6) {
+	if (output_i <= max_index && r->t >= output_sec[output_i] - 1e-6) {	
 		struct reb_particle* particles = r->particles;
 		const int N = r->N;
 		double di;
