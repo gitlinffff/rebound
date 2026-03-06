@@ -245,7 +245,7 @@ def main(day_code, start, stop):
 	HST_FILE = os.path.join("/home/linfel/linfel_data/hst_raw_JianyangLi/", day_hstfile_mapping[day_code])
 
 	SIMU_DATA_DIR = ("/home/linfel/linfel_data/"
-									 f"data_high_shortterm_snapshot_data/{day_code}_interp")
+	                 f"data_high_shortterm_snapshot_data/{day_code}_interp")
 	RUN_NUMBERS = range(start, stop+1, 1)
 
 	OUTPUT_DIR = f"/home/linfel/linfel_data/shortterm_anal/{day_code}/basis_irrad_maps"
@@ -264,5 +264,5 @@ if __name__ == "__main__":
   #main("day_11.86", start=10, stop=500)
 	synthesize_and_plot("/home/linfel/linfel_data/shortterm_anal/day_11.86/basis_irrad_maps/basis_maps_day_11.86_10_500.nc",
 	                    "/home/linfel/linfel_data/shortterm_anal/day_11.86/basis_irrad_maps/k_factors_SNAPSHOT_29.pkl",
-											"/home/linfel/linfel_data/shortterm_anal/day_11.86/basis_irrad_maps/day_11.86_compensated_synthetic.png",
+	                    "/home/linfel/linfel_data/shortterm_anal/day_11.86/basis_irrad_maps/day_11.86_compensated_synthetic.png",
 											use_log=False)
