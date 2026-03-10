@@ -61,10 +61,12 @@ void force_radiation(struct reb_simulation* r);
 void heartbeat(struct reb_simulation* r);
 
 // Declare input variable (no const!)
-int num_threads;
-double r_dust;  // dust particle radius, m -> require to change SRP_coe as well!!!
-double Q_pr;    // reflectivity coefficient of solar radiation pressure
+int num_threads = 8;
+double r_dust = 1.e-3;  // dust radius, m -> require to change SRP_coe as well!!!
+double Q_pr = 1.0;    // reflectivity coefficient of solar radiation pressure
+int integrator_choice = 1; // Default to IAS15
 double tmax; // time to end simulation, seconds
+double bs_eps = 1.0e-5;    // Default BS tolerance
 char fpath[256];// to store input data file path
 
 // Define constants
@@ -149,30 +151,40 @@ int main(int argc, char* argv[]){
 			r_dust = atof(argv[++i]);
 		} else if (strcmp(argv[i], "-qpr") == 0 && i + 1 < argc) {
 			Q_pr = atof(argv[++i]);
+		} else if (strcmp(argv[i], "-intg") == 0 && i + 1 < argc) {
+			integrator_choice = atoi(argv[++i]);
 		} else if (strcmp(argv[i], "-f") == 0 && i + 1 < argc) {
 			strncpy(fpath, argv[++i], sizeof(fpath));
-			fpath[sizeof(fpath) - 1] = '\0'; // null-terminate safely
+			fpath[sizeof(fpath) - 1] = '\0';
 		} else {
-			fprintf(stderr, "Usage: %s -n <num_threads> -r <r_dust> -qpr <Q_pr> -f <input_file>\n", argv[0]);
+			fprintf(stderr, "Usage: %s -n <num_threads> -r <r_dust> -qpr <Q_pr> -intg <1|2> -f <input_file>\n", argv[0]);
 			return 1;
 		}
 	}
+
 	printf("Running with %d OpenMP threads\n", num_threads);
 	printf("Running with r_dust = %e\n", r_dust);
 	printf("Running with Q_pr = %e\n", Q_pr);
 	printf("Running with tmax = %f (automatically set from output_days)\n", tmax);
 	printf("Running with dust input file = %s\n", fpath);
 
-	// Set the number of OpenMP threads to be the number of processors
+	/* Set the number of OpenMP threads to be the number of processors */
 	//int np = omp_get_num_procs();
 	omp_set_num_threads(num_threads);
 	
-	// Setup simulation structure and 3D visualization server
+	// Setup simulation structure
 	struct reb_simulation* r = reb_simulation_create();
-	//reb_simulation_start_server(r, 1234);
 
 	// Setup constants
-	r->integrator          = REB_INTEGRATOR_IAS15;
+	if (integrator_choice == 2) {
+		r->integrator = REB_INTEGRATOR_BS;
+		r->ri_bs.eps_rel       = bs_eps;
+		r->ri_bs.eps_abs       = bs_eps;
+		printf("Using Bulirsch-Stoer integrator (eps = %e)\n", r->ri_bs.eps_rel);
+	} else {
+		r->integrator = REB_INTEGRATOR_IAS15;
+		printf("Using IAS15 integrator\n");
+	}
 	r->dt                  = 1e1;    // Initial timestep, s
 	r->N_active            = 3;     // Only the Sun and the Didymos-Dimorphos system are massive, the dust particles are treated as test particles
 	r->additional_forces   = force_radiation;
@@ -181,7 +193,6 @@ int main(int argc, char* argv[]){
 	
 	reb_simulation_configure_box(r,sep_system*5.,1,1,1);    
 
-    
 	// Didymos
 	double mass_didy = mass_system*vol_didy/(vol_didy+vol_dimor);
 	double mass_dimor = mass_system*vol_dimor/(vol_didy+vol_dimor);
@@ -241,74 +252,74 @@ int main(int argc, char* argv[]){
 	unsigned int N_dimor = 0;     // record initial # of particles within radius of Dimorphos
 	unsigned int N_hill = 0;      // record initial # of particles farther than Hill radius
 
-  // Dust particles
-  if (1){
-    // open dust particles file
-    FILE *dust_file = fopen(fpath, "r");
-    if (dust_file == NULL) {
-      fprintf(stderr, "Error: Could not open file %s\n", fpath);
-      return 1;
-    }
+	// Dust particles
+	if (1){
+		// open dust particles file
+		FILE *dust_file = fopen(fpath, "r");
+		if (dust_file == NULL) {
+			fprintf(stderr, "Error: Could not open file %s\n", fpath);
+			return 1;
+		}
 
-    // open a file examine the particles that are deleted
-    FILE *f_dp = fopen("deleted_particles.csv", "w");
-    if (f_dp == NULL) {
-      reb_simulation_error(r, "Could not open file: deleted_particles.csv");
-      return 1;
-    }
+		// open a file examine the particles that are deleted
+		FILE *f_dp = fopen("deleted_particles.csv", "w");
+		if (f_dp == NULL) {
+			reb_simulation_error(r, "Could not open file: deleted_particles.csv");
+			return 1;
+		}
 
-    double disSQ_Didy, disSQ_Dimor;
-    ReadParticle rp;
-    while (fscanf(dust_file, "%lf %lf %lf %lf %lf %lf %lf %lf %lf",
-      &rp.ID, &rp.x, &rp.y, &rp.z, &rp.vx, &rp.vy, &rp.vz, &rp.mass, &rp.density) == 9) {
+		double disSQ_Didy, disSQ_Dimor;
+		ReadParticle rp;
+		while (fscanf(dust_file, "%lf %lf %lf %lf %lf %lf %lf %lf %lf",
+			&rp.ID, &rp.x, &rp.y, &rp.z, &rp.vx, &rp.vy, &rp.vz, &rp.mass, &rp.density) == 9) {
 
-      N_scanned++;
-      // rotate the original coordinate system around its y-axis by 180 degree
-      transform(&rp);
+			N_scanned++;
+			// rotate the original coordinate system around its y-axis by 180 degree
+			transform(&rp);
 
-      struct reb_particle p = {0};
-      p.m = 0.0;
-      p.r = r_dust;
-      p.x = rp.x + Dimorphos.x;
-      p.y = rp.y + Dimorphos.y;
-      p.z = rp.z + Dimorphos.z;
-      p.vx = rp.vx + Dimorphos.vx;
-      p.vy = rp.vy + Dimorphos.vy;
-      p.vz = rp.vz + Dimorphos.vz;
+			struct reb_particle p = {0};
+			p.m = 0.0;
+			p.r = r_dust;
+			p.x = rp.x + Dimorphos.x;
+			p.y = rp.y + Dimorphos.y;
+			p.z = rp.z + Dimorphos.z;
+			p.vx = rp.vx + Dimorphos.vx;
+			p.vy = rp.vy + Dimorphos.vy;
+			p.vz = rp.vz + Dimorphos.vz;
 
-      disSQ_Didy  = pow(p.x-Didymos.x,2) + pow(p.y-Didymos.y,2) + pow(p.z-Didymos.z,2);
-      disSQ_Dimor = pow(p.x-Dimorphos.x,2) + pow(p.y-Dimorphos.y,2) + pow(p.z-Dimorphos.z,2);
+			disSQ_Didy  = pow(p.x-Didymos.x,2) + pow(p.y-Didymos.y,2) + pow(p.z-Didymos.z,2);
+			disSQ_Dimor = pow(p.x-Dimorphos.x,2) + pow(p.y-Dimorphos.y,2) + pow(p.z-Dimorphos.z,2);
 
-      // skip particles that are farther than hill radius and that make up Didymos or Dimorphos
-      if (disSQ_Didy < Rsq_didy){
-        fprintf(f_dp, "%f,%f,%f,%d\n", rp.x, rp.y, rp.z, 1);
-        N_didy++;
-        continue;
+			// skip particles that are farther than hill radius and that make up Didymos or Dimorphos
+			if (disSQ_Didy < Rsq_didy){
+				fprintf(f_dp, "%f,%f,%f,%d\n", rp.x, rp.y, rp.z, 1);
+				N_didy++;
+				continue;
 			}
-      if (disSQ_Dimor < Rsq_dimor){
-        fprintf(f_dp, "%f,%f,%f,%d\n", rp.x, rp.y, rp.z, 2);
-        N_dimor++;
-        continue;
-      }
-      if (disSQ_Didy > Rsq_hill){
-        fprintf(f_dp, "%f,%f,%f,%d\n", rp.x, rp.y, rp.z, 3);
-        N_hill++;
-        continue;
+			if (disSQ_Dimor < Rsq_dimor){
+				fprintf(f_dp, "%f,%f,%f,%d\n", rp.x, rp.y, rp.z, 2);
+				N_dimor++;
+				continue;
+			}
+			if (disSQ_Didy > Rsq_hill){
+				fprintf(f_dp, "%f,%f,%f,%d\n", rp.x, rp.y, rp.z, 3);
+				N_hill++;
+				continue;
 			}
 
-      N_particles++;
-      p.hash = N_particles;
-      reb_simulation_add(r, p);
-    }
-    fclose(dust_file);
-    fclose(f_dp);
-  }
+			N_particles++;
+			p.hash = N_particles;
+			reb_simulation_add(r, p);
+		}
+		fclose(dust_file);
+		fclose(f_dp);
+	}
 
-  fprintf(stdout, "Total # of particles scanned: %i\n", N_scanned);
-  fprintf(stdout, "Total # of particles registered: %i\n", N_particles);
-  fprintf(stdout, "# of particles within Didymos: %i\n", N_didy);
-  fprintf(stdout, "# of particles within Dimorphos: %i\n", N_dimor);
-  fprintf(stdout, "# of particles outside of Hill radius: %i\n", N_hill);
+	fprintf(stdout, "Total # of particles scanned: %i\n", N_scanned);
+	fprintf(stdout, "Total # of particles registered: %i\n", N_particles);
+	fprintf(stdout, "# of particles within Didymos: %i\n", N_didy);
+	fprintf(stdout, "# of particles within Dimorphos: %i\n", N_dimor);
+	fprintf(stdout, "# of particles outside of Hill radius: %i\n", N_hill);
 
 	system("rm -v particles.txt");
 	system("rm -v collide.txt");
@@ -316,8 +327,7 @@ int main(int argc, char* argv[]){
 	reb_simulation_save_to_file_interval(r, "archive.bin", 864000.); // save for restart. 10 days between snapshots
 //	reb_simulation_integrate(r, tmax);
 	for (int i = 0; i < num_outputs; i++) {
-			reb_simulation_integrate(r, output_sec[i]);
-			// Force an output here manually to be 100% sure
+		reb_simulation_integrate(r, output_sec[i]);
 	}
 	fprintf(stdout, "\n");
 }
