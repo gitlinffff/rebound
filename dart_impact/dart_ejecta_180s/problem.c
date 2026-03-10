@@ -124,6 +124,7 @@ const double T33 = 0.986612735258626;
 
 /* define output timing */
 static const double output_days[] = {0.0, 64.44, 78.65, 83.77, 92.66, 114.75, 131.29, 153.47, 155.31, 177.46, 198.9, 230.39};
+//static const double output_days[] = {0.0, 0.34, 0.74, 1.14, 1.74, 2.15, 3.72, 4.72, 5.70, 11.86, 14.91};
 
 #define NUM_OUTPUTS (sizeof(output_days) / sizeof(output_days[0]))
 static const int num_outputs = NUM_OUTPUTS;
