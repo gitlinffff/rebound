@@ -491,21 +491,14 @@ void reb_simulation_move_to_DSB(struct reb_simulation* const r){
 		double com_x = (Didy.m * Didy.x + Dimor.m * Dimor.x) / (Didy.m + Dimor.m);
 		double com_y = (Didy.m * Didy.y + Dimor.m * Dimor.y) / (Didy.m + Dimor.m);
 		double com_z = (Didy.m * Didy.z + Dimor.m * Dimor.z) / (Didy.m + Dimor.m);
-		double com_vx = (Didy.m * Didy.vx + Dimor.m * Dimor.vx) / (Didy.m + Dimor.m);
-		double com_vy = (Didy.m * Didy.vy + Dimor.m * Dimor.vy) / (Didy.m + Dimor.m);
-		double com_vz = (Didy.m * Didy.vz + Dimor.m * Dimor.vz) / (Didy.m + Dimor.m);
 		// Note: Variational particles will not be affected.
 		for (int i=0;i<N_real;i++){
 			particles[i].x  -= com_x;
 			particles[i].y  -= com_y;
 			particles[i].z  -= com_z;
-			particles[i].vx  -= com_vx;
-			particles[i].vy  -= com_vy;
-			particles[i].vz  -= com_vz;
 		}
 	}
 }
-
 
 void heartbeat(struct reb_simulation* r){
 //----------------track minimum dt--------------------
@@ -590,41 +583,58 @@ void heartbeat(struct reb_simulation* r){
 		fclose(f_c);
 		
 		reb_simulation_move_to_DSB(r);
-		//reb_simulation_move_to_hel(r);
-		//reb_move_to_Didymos(r);
 	}
 
 //----------------output all particles---------------------
 //	if(reb_simulation_output_check(r, next_output_t)){
 	if (output_i <= max_index && r->t >= output_sec[output_i] - 1e-6) {
-		reb_simulation_move_to_DSB(r);
 		reb_simulation_output_timing(r, tmax);
 		printf("\n");
 
 		struct reb_particle* particles = r->particles;
 		const int N = r->N;
-		double di;
+		double hash_val;
 
-		// output particle position and velocity
+		// Calculate the CoM of Didymos and Dimorphos
+		struct reb_particle Didy = particles[0];
+		struct reb_particle Dimor = particles[1];
+		double total_m = Didy.m + Dimor.m;
+
+		double com_x  = (Didy.m * Didy.x  + Dimor.m * Dimor.x)  / total_m;
+		double com_y  = (Didy.m * Didy.y  + Dimor.m * Dimor.y)  / total_m;
+		double com_z  = (Didy.m * Didy.z  + Dimor.m * Dimor.z)  / total_m;
+		double com_vx = (Didy.m * Didy.vx + Dimor.m * Dimor.vx) / total_m;
+		double com_vy = (Didy.m * Didy.vy + Dimor.m * Dimor.vy) / total_m;
+		double com_vz = (Didy.m * Didy.vz + Dimor.m * Dimor.vz) / total_m;
+
+		// Open file for binary append
 		FILE* fp = fopen("particles.txt","ab+");
 		if ( fp == NULL){
 			reb_simulation_error(r, "Can not open file: particles.txt.");
 			return;
 		}
 		
-		fwrite( &(N), sizeof(int), 1, fp);
-		fwrite( &(r->t), sizeof(double), 1, fp);
-		fwrite( &(r_dust), sizeof(double), 1, fp);
+		fwrite(&(N), sizeof(int), 1, fp);
+		fwrite(&(r->t), sizeof(double), 1, fp);
+		fwrite(&(r_dust), sizeof(double), 1, fp);
 		for ( int i=0; i<N; i++ ) {
 			const struct reb_particle p = particles[i];
-			di = (double)p.hash;
-			fwrite( &(di), sizeof(double), 1, fp);
-			fwrite( &(p.x), sizeof(double), 1, fp);
-			fwrite( &(p.y), sizeof(double), 1, fp);
-			fwrite( &(p.z), sizeof(double), 1, fp);
-			fwrite( &(p.vx), sizeof(double), 1, fp);
-			fwrite( &(p.vy), sizeof(double), 1, fp);
-			fwrite( &(p.vz), sizeof(double), 1, fp);
+
+			hash_val = (double)p.hash;
+			double rx = p.x  - com_x;
+			double ry = p.y  - com_y;
+			double rz = p.z  - com_z;
+			double rvx = p.vx - com_vx;
+			double rvy = p.vy - com_vy;
+			double rvz = p.vz - com_vz;
+
+			fwrite( &hash_val, sizeof(double), 1, fp);
+			fwrite( &rx,  sizeof(double), 1, fp);
+			fwrite( &ry,  sizeof(double), 1, fp);
+			fwrite( &rz,  sizeof(double), 1, fp);
+			fwrite( &rvx, sizeof(double), 1, fp);
+			fwrite( &rvy, sizeof(double), 1, fp);
+			fwrite( &rvz, sizeof(double), 1, fp);
 		}
 		fclose(fp);
 
@@ -633,7 +643,7 @@ void heartbeat(struct reb_simulation* r){
 		if (output_i <= max_index) {
 			next_output_t = output_sec[output_i];
 		}
- }
+	}
     
 //----------------output orbital parameters--------------------
 //particles orbits relative to barycenter of binary system
