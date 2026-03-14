@@ -218,13 +218,15 @@ def synthesize_and_plot(basismap_file, k_factors_path, output_path, use_log=True
 	if use_log:
 		plot_data = np.log10(synth_map + 1e-20) # Add small epsilon to avoid log(0)
 		label = r'$\log_{10}$(Brightness) [$W m^{-2} \mu m^{-1} sr^{-1}$]'
-		vmax = np.nanmax(plot_data) 
-		vmin = vmax - 6  # Show 6 orders of magnitude for best contrast
+		#vmax = np.nanmax(plot_data) 
+		#vmin = vmax - 6  # Show 6 orders of magnitude for best contrast
+		vmax = -1; vmin = -6
 	else:
 		plot_data = synth_map
 		label = r'Brightness [$W m^{-2} \mu m^{-1} sr^{-1}$]'
-		vmax = np.nanmax(plot_data) / 10.0
+		#vmax = np.nanmax(plot_data) / 10.0
 		vmin = None
+		vmax = 0.0003
 
 	# Plotting
 	fig, ax = plt.subplots(figsize=(8, 8))
@@ -244,11 +246,10 @@ def main(day_code, start, stop):
 	# configure file paths
 	HST_FILE = os.path.join("/home/linfel/linfel_data/hst_raw_JianyangLi/", day_hstfile_mapping[day_code])
 
-	SIMU_DATA_DIR = ("/home/linfel/linfel_data/"
-	                 f"data_high_shortterm_snapshot_data/{day_code}_interp")
+	SIMU_DATA_DIR = (f"/home/linfel/linfel_data/high_2vperp_snapdata/{day_code}_interp")
 	RUN_NUMBERS = range(start, stop+1, 1)
 
-	OUTPUT_DIR = f"/home/linfel/linfel_data/shortterm_anal/{day_code}/basis_irrad_maps"
+	OUTPUT_DIR = f"/home/linfel/linfel_data/2vperp_anl/{day_code}/basis_irrad_maps"
 	os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 	# process HST image
@@ -261,8 +262,9 @@ def main(day_code, start, stop):
 
 
 if __name__ == "__main__":
-  #main("day_11.86", start=10, stop=500)
-	synthesize_and_plot("/home/linfel/linfel_data/shortterm_anal/day_11.86/basis_irrad_maps/basis_maps_day_11.86_10_500.nc",
-	                    "/home/linfel/linfel_data/shortterm_anal/day_11.86/basis_irrad_maps/k_factors_SNAPSHOT_29.pkl",
-	                    "/home/linfel/linfel_data/shortterm_anal/day_11.86/basis_irrad_maps/day_11.86_compensated_synthetic.png",
-											use_log=False)
+#  main("day_11.86", start=260, stop=380)
+	wdir = "/home/linfel/linfel_data/shortterm_anal/day_11.86_bldrm/basis_irrad_maps"
+	synthesize_and_plot(os.path.join(wdir, "basis_maps_day_11.86_10_500.nc"),
+	                    "",
+						os.path.join(wdir, "comps_synth_linear.png"),
+						use_log=False)
