@@ -124,8 +124,8 @@ const double T32 = 0.124915784491013;
 const double T33 = 0.986612735258626;
 
 /* define output timing */
-static const double output_days[] = {0.0, 64.44, 78.65, 83.77, 92.66, 114.75, 131.29, 153.47, 155.31, 177.46, 198.9, 230.39};
-//static const double output_days[] = {0.0, 0.34, 0.74, 1.14, 1.74, 2.15, 3.72, 4.72, 5.70, 11.86, 14.91};
+//static const double output_days[] = {0.0, 64.44, 78.65, 83.77, 92.66, 114.75, 131.29, 153.47, 155.31, 177.46, 198.9, 230.39};
+static const double output_days[] = {0.0, 0.34, 0.74, 1.14, 1.74, 2.15, 3.72, 4.72, 5.70, 11.86, 14.91};
 
 #define NUM_OUTPUTS (sizeof(output_days) / sizeof(output_days[0]))
 static const int num_outputs = NUM_OUTPUTS;
@@ -253,6 +253,7 @@ int main(int argc, char* argv[]){
 	unsigned int N_didy = 0;      // record initial # of particles within radius of Didymos
 	unsigned int N_dimor = 0;     // record initial # of particles within radius of Dimorphos
 	unsigned int N_hill = 0;      // record initial # of particles farther than Hill radius
+	unsigned int N_2vperp = 0;    // record initial # of particles v_perp doubled
 
 	// Dust particles
 	if (1){
@@ -280,7 +281,11 @@ int main(int argc, char* argv[]){
 			transform(&rp);
 
 			// Double the velocity perpendicular to the impact velocity direction
-			rp.vx = rp.vx * 2.0; rp.vz = rp.vz * 2.0;
+			double vsq = pow(rp.vx, 2.) + pow(rp.vy, 2.) + pow(rp.vz, 2.);
+			if (vsq >= 0.04) {
+				rp.vx = rp.vx * 2.0; rp.vz = rp.vz * 2.0;
+				N_2vperp++;
+			}
 
 			struct reb_particle p = {0};
 			p.m = 0.0;
@@ -324,6 +329,7 @@ int main(int argc, char* argv[]){
 	fprintf(stdout, "# of particles within Didymos: %i\n", N_didy);
 	fprintf(stdout, "# of particles within Dimorphos: %i\n", N_dimor);
 	fprintf(stdout, "# of particles outside of Hill radius: %i\n", N_hill);
+	fprintf(stdout, "# of particles v_perp doubled: %i\n", N_2vperp);
 
 	system("rm -v particles.txt");
 	system("rm -v collide.txt");
