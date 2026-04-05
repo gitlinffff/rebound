@@ -39,15 +39,17 @@ def get_T0_vars(filepath):
 	rel_vel = vel_dust - vel_dimor
 
 	# Distance and Velocity Magnitudes
+	speed_dsb = np.linalg.norm(vel_dust, axis=1) # relative to DSB
 	dists = np.linalg.norm(rel_pos, axis=1)
-	speed = np.linalg.norm(rel_vel, axis=1)
+	speed_dimor = np.linalg.norm(rel_vel, axis=1)# relative to Dimorphos
 
 	# Calculate Theta (Angle relative to -Y axis)
 	cone_axis = np.array([0, -1, 0])
 	cos_theta = (rel_pos @ cone_axis) / dists
 	theta = np.degrees(np.arccos(np.clip(cos_theta, -1.0, 1.0)))
 
-	return {'dists': dists, 'speed': speed, 'theta': theta, 'ids': ids}
+	return {'dists': dists, 'speed_dsb': speed_dsb,
+	        'speed_dimor': speed_dimor, 'theta': theta, 'ids': ids}
 
 def process_data(data_dir, RUN_NUMBERS, t0_vars, fraction=1.0):
 	"""
@@ -55,7 +57,7 @@ def process_data(data_dir, RUN_NUMBERS, t0_vars, fraction=1.0):
 	"""
 	r_sky_north = get_r_sky_north()
 
-	all_x, all_y, all_dist, all_speed, all_theta = [], [], [], [], []
+	all_x, all_y, all_dist, all_speed_dimor, all_speed_dsb, all_theta = [], [], [], [], [], []
 	for run_idx in RUN_NUMBERS:
 		# Load the target dataset (e.g., Day 11)
 		filepath = os.path.join(data_dir, f"{run_idx:03d}_snapshots.pkl")
@@ -93,71 +95,117 @@ def process_data(data_dir, RUN_NUMBERS, t0_vars, fraction=1.0):
 		# use dust ID to get their initial distance and theta
 		mask = np.isin(t0_vars['ids'], dust_ids)
 		dist_sel = t0_vars['dists'][mask]
-		speed_sel = t0_vars['speed'][mask]
+		speed_dimor_sel = t0_vars['speed_dimor'][mask]
+		speed_dsb_sel = t0_vars['speed_dsb'][mask]
 		theta_sel = t0_vars['theta'][mask]
 
 		all_x.append(x_proj)
 		all_y.append(y_proj)
 		all_dist.append(dist_sel)
-		all_speed.append(speed_sel)
+		all_speed_dimor.append(speed_dimor_sel)
+		all_speed_dsb.append(speed_dsb_sel)
 		all_theta.append(theta_sel)
-	
-	all_x = np.hstack(all_x)
-	all_y = np.hstack(all_y)
-	all_dist = np.hstack(all_dist)
-	all_speed = np.hstack(all_speed)
-	all_theta = np.hstack(all_theta)
 
-	return all_x, all_y, all_dist, all_speed, all_theta
+	return {
+			'x': np.hstack(all_x),
+			'y': np.hstack(all_y),
+			'dist': np.hstack(all_dist),
+			'v_d2dimor': np.hstack(all_speed_dimor),
+			'v_d2dsb': np.hstack(all_speed_dsb),
+			'theta': np.hstack(all_theta)
+	}
 
-def plot_t0vars_distribution(all_x, all_y, all_dist, all_speed, all_theta, day_code, output_dir):
+def plot_t0vars_distribution(data_dict, day_code, output_dir, sort_speed=False):
 	day = day_code.split('_')[1]
 	alpha = 0.5
 
-	# Plot initial distance from Dimorphos
-	plt.figure(figsize=(8, 7))
-	sca = plt.scatter(all_x, all_y, c=all_dist,
-	                   s=0.5, cmap='viridis', alpha=alpha,
-										vmin=0, vmax=600)
-	plt.colorbar(sca, label='Initial Distance from Dimorphos [m]')
-	plt.xlim(-2000e3, 2000e3)
-	plt.ylim(-2000e3, 2000e3)
-	plt.xlabel('HST View Plane X [m]')
-	plt.ylabel('HST View Plane Y [m]')
-	plt.title(rf'Initial Distance Distribution ($T_0$+{day}day HST FOV)')
-	plt.gca().set_aspect('equal', adjustable='box')
-	plt.savefig(os.path.join(output_dir, "init_distance.png"), dpi=300, bbox_inches='tight', pad_inches=0.1)
-	plt.close()
+	# Accessing dictionary values for brevity
+	all_x = data_dict['x']
+	all_y = data_dict['y']
+	all_dist = data_dict['dist']
+	all_v_d2dimor = data_dict['v_d2dimor']
+	all_v_d2dsb = data_dict['v_d2dsb']
+	all_theta = data_dict['theta']
 
-	# Plot initial speed relative to Dimorphos
-	plt.figure(figsize=(8, 7))
-	sca = plt.scatter(all_x, all_y, c=all_speed,
-	                  s=0.5, cmap='viridis', alpha=alpha,
-                      norm=colors.LogNorm(vmin=0.1, vmax=100))
-	plt.colorbar(sca, label='Initial speed relative to Dimorphos [m/s]')
-	plt.xlim(-2000e3, 2000e3)
-	plt.ylim(-2000e3, 2000e3)
-	plt.xlabel('HST View Plane X [m]')
-	plt.ylabel('HST View Plane Y [m]')
-	plt.title(rf'Initial speed Distribution ($T_0$+{day}day HST FOV)')
-	plt.gca().set_aspect('equal', adjustable='box')
-	plt.savefig(os.path.join(output_dir, "init_speed.png"), dpi=300, bbox_inches='tight', pad_inches=0.1)
-	plt.close()
+	if (0):
+		print("Plot T0 distance from Dimorphos...", flush=True)
+		plt.figure(figsize=(8, 7))
+		sca = plt.scatter(all_x, all_y, c=all_dist,
+											 s=0.5, cmap='viridis', alpha=alpha,
+											vmin=0, vmax=600)
+		plt.colorbar(sca, label='Initial Distance from Dimorphos [m]')
+		plt.xlim(-2000e3, 2000e3)
+		plt.ylim(-2000e3, 2000e3)
+		plt.xlabel('HST View Plane X [m]')
+		plt.ylabel('HST View Plane Y [m]')
+		plt.title(rf'Initial Distance Distribution ($T_0$+{day}day HST FOV)')
+		plt.gca().set_aspect('equal', adjustable='box')
+		plt.savefig(os.path.join(output_dir, "init_distance.png"), dpi=300, bbox_inches='tight', pad_inches=0.1)
+		plt.close()
 
-	# Plot initial angle within the cone
-	plt.figure(figsize=(8, 7))
-	sca = plt.scatter(all_x, all_y, c=all_theta,
-	                   s=0.5, cmap='viridis', alpha=alpha,
-										 vmin=0, vmax=90)
-	plt.colorbar(sca, label='Initial Angle in the Cone [degree]')
-	plt.xlim(-2000e3, 2000e3)
-	plt.ylim(-2000e3, 2000e3)
-	plt.xlabel('HST View Plane X [m]')
-	plt.ylabel('HST View Plane Y [m]')
-	plt.title(rf'Initial Angle Distribution ($T_0$+{day}day HST FOV)')
-	plt.gca().set_aspect('equal', adjustable='box')
-	plt.savefig(os.path.join(output_dir, "init_angle.png"), dpi=300, bbox_inches='tight', pad_inches=0.1)
-	plt.close()
+	if (1):
+		print("Plot T0 speed relative to Dimorphos...", flush=True)
+		plt.figure(figsize=(8, 7))
+		plot_x, plot_y, plot_speed = all_x, all_y, all_v_d2dimor
+		if sort_speed:
+			# Sort descending (low speed on top of image)
+			sort_idx = np.argsort(all_v_d2dimor)[::-1]
+			plot_x = all_x[sort_idx]
+			plot_y = all_y[sort_idx]
+			plot_speed = all_v_d2dimor[sort_idx]
+		sca = plt.scatter(plot_x, plot_y, c=plot_speed,
+											s=0.5, cmap='tab20', alpha=alpha,
+											norm=colors.LogNorm(vmin=0.06, vmax=0.11))
+		plt.colorbar(sca, label='Initial speed relative to Dimorphos [m/s]')
+		plt.xlim(-2000e3, 2000e3)
+		plt.ylim(-2000e3, 2000e3)
+		plt.xlabel('HST View Plane X [m]')
+		plt.ylabel('HST View Plane Y [m]')
+		plt.title(rf'Initial speed Distribution ($T_0$+{day}day HST FOV)')
+		plt.gca().set_aspect('equal', adjustable='box')
+		plt.savefig(os.path.join(output_dir, "init_v_d2dimor.png"), dpi=300, bbox_inches='tight', pad_inches=0.1)
+		plt.close()
+
+	if (1):
+		print("Plot T0 speed relative to DSB...", flush=True)
+		plt.figure(figsize=(8, 7))
+		plot_x, plot_y, plot_speed = all_x, all_y, all_v_d2dsb
+		if sort_speed:
+			# Sort descending (low speed on top of image)
+			sort_idx = np.argsort(all_v_d2dsb)[::-1]
+			plot_x = all_x[sort_idx]
+			plot_y = all_y[sort_idx]
+			plot_speed = all_v_d2dsb[sort_idx]
+		sca = plt.scatter(plot_x, plot_y, c=plot_speed,
+											s=0.5, cmap='tab20', alpha=alpha,
+											norm=colors.LogNorm(vmin=0.15, vmax=0.3))
+		plt.colorbar(sca, label='Initial speed relative to DSB [m/s]')
+		plt.xlim(-2000e3, 2000e3)
+		plt.ylim(-2000e3, 2000e3)
+		plt.xlabel('HST View Plane X [m]')
+		plt.ylabel('HST View Plane Y [m]')
+		plt.title(rf'Initial speed Distribution ($T_0$+{day}day HST FOV)')
+		plt.gca().set_aspect('equal', adjustable='box')
+		plt.savefig(os.path.join(output_dir, "init_v_d2dsb.png"), dpi=300, bbox_inches='tight', pad_inches=0.1)
+		plt.close()
+
+	if (0):
+		print("Plot T0 angle within the cone...", flush=True)
+		plt.figure(figsize=(8, 7))
+		sca = plt.scatter(all_x, all_y, c=all_theta,
+											 s=0.5, cmap='viridis', alpha=alpha,
+											 vmin=0, vmax=90)
+		plt.colorbar(sca, label='Initial Angle in the Cone [degree]')
+		plt.xlim(-2000e3, 2000e3)
+		plt.ylim(-2000e3, 2000e3)
+		plt.xlabel('HST View Plane X [m]')
+		plt.ylabel('HST View Plane Y [m]')
+		plt.title(rf'Initial Angle Distribution ($T_0$+{day}day HST FOV)')
+		plt.gca().set_aspect('equal', adjustable='box')
+		plt.savefig(os.path.join(output_dir, "init_angle.png"), dpi=300, bbox_inches='tight', pad_inches=0.1)
+		plt.close()
+	
+	print(f"Images saved to {output_dir}")
 
 if __name__ == "__main__":
 	day_code = "day_11.86"
@@ -169,6 +217,6 @@ if __name__ == "__main__":
 	# get all particles' ID, distance, and theta from T0 snapshot 
 	t0_vars = get_T0_vars("/home/linfel/linfel_data/data_high_shortterm_snapshot_data/day_0/001_snapshots.pkl")
 	# associate particle's coordinates on view plane with their initial distance and theta
-	all_x, all_y, initial_dist, initial_speed, initial_theta = process_data(DATA_DIR, RUN_NUMBERS, t0_vars, 0.6)
+	all_data = process_data(DATA_DIR, RUN_NUMBERS, t0_vars, 0.1)
 	# create the plot
-	plot_t0vars_distribution(all_x, all_y, initial_dist, initial_speed, initial_theta, day_code, OUTPUT_DIR)
+	plot_t0vars_distribution(all_data, day_code, OUTPUT_DIR, True)
