@@ -127,11 +127,11 @@ double dt_minimum = 1.e15;
 
 int main(int argc, char* argv[]){
   /* Convert all output_days to seconds */
-  for (int i = 0; i <= max_index; i++) {
-    output_sec[i] = output_days[i] * 86400.0;
-  }
+	for (int i = 0; i <= max_index; i++) {
+		output_sec[i] = output_days[i] * 86400.0;
+	}
 	tmax = output_sec[max_index];
-  next_output_t = output_sec[0];
+	next_output_t = output_sec[0];
 
 	/* Parse command-line arguments */
 	for (int i = 1; i < argc; i++) {
@@ -257,8 +257,16 @@ int main(int argc, char* argv[]){
 
 		double disSQ_Didy, disSQ_Dimor;
 		ReadParticle rp;
-		while (fscanf(dust_file, "%lf %lf %lf %lf %lf %lf %lf %lf %lf",
-			&rp.ID, &rp.x, &rp.y, &rp.z, &rp.vx, &rp.vy, &rp.vz, &rp.radius, &rp.density) == 9) {
+		char line[1024];
+		while (fgets(line, sizeof(line), dust_file) != NULL) {
+			const char first = line[0];
+			if (first == '#' || first == '\n' || first == '\r') {
+				continue;
+			}
+			if (sscanf(line, "%lf %lf %lf %lf %lf %lf %lf %lf %lf",
+				&rp.ID, &rp.x, &rp.y, &rp.z, &rp.vx, &rp.vy, &rp.vz, &rp.radius, &rp.density) != 9) {
+				continue;
+			}
 
 			N_scanned++;
 			// rotate the original coordinate system around its y-axis by 180 degree
