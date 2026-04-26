@@ -532,7 +532,7 @@ void reb_move_to_Didymos(struct reb_simulation* const r){
 	}
 }
 
-void reb_simulation_move_to_DidyDimor_com(struct reb_simulation* const r){
+void reb_simulation_move_to_DSB(struct reb_simulation* const r){
 	const int N_real = r->N - r->N_var;
 	if (N_real>0){
 		struct reb_particle* restrict const particles = r->particles;
@@ -640,20 +640,19 @@ void heartbeat(struct reb_simulation* r){
 		}
 		fclose(f_c);
 		
-		reb_simulation_move_to_DidyDimor_com(r);
-		//reb_simulation_move_to_hel(r);
-		//reb_move_to_Didymos(r);
+		reb_simulation_move_to_DSB(r);
 	}
 
 //----------------output all particles---------------------
 //	if(reb_simulation_output_check(r, next_output_t)){
 	if (output_i <= max_index && r->t >= output_sec[output_i] - 1e-6) {
+		reb_simulation_move_to_DSB(r);
+		reb_simulation_output_timing(r, tmax);
+		printf("\n");
+
 		struct reb_particle* particles = r->particles;
 		const int N = r->N;
 		double di;
-
-		reb_simulation_output_timing(r, tmax);
-		printf("\n");
 
 		// output particle position and velocity
 		FILE* fp = fopen("particles.txt","ab+");
