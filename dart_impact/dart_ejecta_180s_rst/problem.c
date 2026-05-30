@@ -66,6 +66,7 @@ double r_dust;  // dust particle radius, m -> require to change SRP_coe as well!
 double Q_pr;    // reflectivity coefficient of solar radiation pressure
 double bs_eps;  // BS integrator relative and absolute tolerances
 double tmax;    // time to end simulation, seconds
+int i_rst_idx;  // restart from the snapshot index of the archive.bin file
 char fpath[256];// to store input data file path
 
 // Define constants
@@ -150,14 +151,17 @@ int main(int argc, char* argv[]){
 			r_dust = atof(argv[++i]);
 		} else if (strcmp(argv[i], "-qpr") == 0 && i + 1 < argc) {
 			Q_pr = atof(argv[++i]);
+		} else if (strcmp(argv[i], "-rsti") == 0 && i + 1 < argc) {
+			i_rst_idx = atoi(argv[++i]);	
 		} else if (strcmp(argv[i], "-f") == 0 && i + 1 < argc) {
 			strncpy(fpath, argv[++i], sizeof(fpath));
 			fpath[sizeof(fpath) - 1] = '\0'; // null-terminate safely
 		} else {
-			fprintf(stderr, "Usage: %s -n <num_threads> -r <r_dust> -qpr <Q_pr> -f <rst_archive>\n", argv[0]);
+			fprintf(stderr, "Usage: %s -n <num_threads> -r <r_dust> -qpr <Q_pr> -rsti <rst_index> -f <rst_archive>\n", argv[0]);
 			return 1;
 		}
 	}
+	printf("\n");
 	printf("Running with %d OpenMP threads\n", num_threads);
 	printf("Running with r_dust = %.8e\n", r_dust);
 	printf("Running with Q_pr = %e\n", Q_pr);
@@ -170,7 +174,7 @@ int main(int argc, char* argv[]){
 	
 	// restart from a specified snapshot
 	struct reb_simulationarchive* archive = reb_simulationarchive_create_from_file(fpath);// "archive.bin"
-	struct reb_simulation* r = reb_simulation_create_from_simulationarchive(archive, -1); // -1 if the last snapshot
+	struct reb_simulation* r = reb_simulation_create_from_simulationarchive(archive, i_rst_idx); // -1 if the last snapshot
 	reb_simulationarchive_free(archive);
 
 	// print restarting information
@@ -204,7 +208,7 @@ int main(int argc, char* argv[]){
 	r->heartbeat           = heartbeat;
 
 	// --- LOGIC TO RESTART OUTPUT TIMING ---
-	printf("Restarting from simulation time: %.2f days (%.2f seconds)\n", r->t/86400., r->t);
+	printf("\nRestarting from simulation time: %.2f days (%.2f seconds)\n", r->t/86400., r->t);
 
 	// Find the next output time index (output_i)
 	for (int i = 0; i <= max_index; i++) {
