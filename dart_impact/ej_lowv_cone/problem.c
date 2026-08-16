@@ -364,11 +364,12 @@ void force_radiation(struct reb_simulation* r){
 	const struct reb_particle star = particles[2];            // cache
 	const int N = r->N;
 	
+	double pr;
 	// Sun-Didymos vector
 	double prx_didy_star = Didymos.x-star.x;
 	double pry_didy_star = Didymos.y-star.y;
 	double prz_didy_star = Didymos.z-star.z;
-	double pr = 1.0/sqrt(prx_didy_star*prx_didy_star + pry_didy_star*pry_didy_star + prz_didy_star*prz_didy_star);
+	pr = 1.0/sqrt(prx_didy_star*prx_didy_star + pry_didy_star*pry_didy_star + prz_didy_star*prz_didy_star);
 	prx_didy_star *= pr;
 	pry_didy_star *= pr;
 	prz_didy_star *= pr;
@@ -384,10 +385,9 @@ void force_radiation(struct reb_simulation* r){
 	
 	
 #pragma omp parallel for
-	for (int i=0;i<N;i++){
+	for (int i=4;i<N;i++){ // Only dust particles feel radiation forces
 
-		struct reb_particle p = particles[i];             // cache
-		if ( p.m > 0. ) continue;                         // Only dust particles feel radiation forces
+		const struct reb_particle p = particles[i]; // cache
 		
 		// set up vector
 		const double prx_star  = p.x-star.x;
@@ -399,58 +399,59 @@ void force_radiation(struct reb_simulation* r){
 		const double prx_dimor = p.x-Dimorphos.x;
 		const double pry_dimor = p.y-Dimorphos.y;
 		const double prz_dimor = p.z-Dimorphos.z;
+		double pr_particle;
 		double dfactor;
 		unsigned int flag_noshadow = 1;
 		
 		/* radiation force */
 		// check if is in the shadow of Didymos
-		pr = prx_didy*prx_didy_star + pry_didy*pry_didy_star + prz_didy*prz_didy_star;
-		if ( pr > 0.0 ) {
-			double prx_body_rad = prx_didy - pr*prx_didy_star;  // radial vector of dust relative to the Sun-Didymos direction
-			double pry_body_rad = pry_didy - pr*pry_didy_star;  // radial vector of dust relative to the Sun-Didymos direction
-			double prz_body_rad = prz_didy - pr*prz_didy_star;  // radial vector of dust relative to the Sun-Didymos direction
+		pr_particle = prx_didy*prx_didy_star + pry_didy*pry_didy_star + prz_didy*prz_didy_star;
+		if ( pr_particle > 0.0 ) {
+			double prx_body_rad = prx_didy - pr_particle*prx_didy_star;  // radial vector of dust relative to the Sun-Didymos direction
+			double pry_body_rad = pry_didy - pr_particle*pry_didy_star;  // radial vector of dust relative to the Sun-Didymos direction
+			double prz_body_rad = prz_didy - pr_particle*prz_didy_star;  // radial vector of dust relative to the Sun-Didymos direction
 			if ( prx_body_rad*prx_body_rad + pry_body_rad*pry_body_rad + prz_body_rad*prz_body_rad < Rsq_didy )
 				flag_noshadow = 0;
 		}
 		
 		// check if is in the shadow of Dimorphos
-		pr = prx_dimor*prx_dimor_star + pry_dimor*pry_dimor_star + prz_dimor*prz_dimor_star;
-		if ( pr > 0.0 ) {
-			double prx_body_rad = prx_dimor - pr*prx_dimor_star;  // radial vector of dust relative to the Sun-Dimorphos direction
-			double pry_body_rad = pry_dimor - pr*pry_dimor_star;  // radial vector of dust relative to the Sun-Dimorphos direction
-			double prz_body_rad = prz_dimor - pr*prz_dimor_star;  // radial vector of dust relative to the Sun-Dimorphos direction
+		pr_particle = prx_dimor*prx_dimor_star + pry_dimor*pry_dimor_star + prz_dimor*prz_dimor_star;
+		if ( pr_particle > 0.0 ) {
+			double prx_body_rad = prx_dimor - pr_particle*prx_dimor_star;  // radial vector of dust relative to the Sun-Dimorphos direction
+			double pry_body_rad = pry_dimor - pr_particle*pry_dimor_star;  // radial vector of dust relative to the Sun-Dimorphos direction
+			double prz_body_rad = prz_dimor - pr_particle*prz_dimor_star;  // radial vector of dust relative to the Sun-Dimorphos direction
 			if ( prx_body_rad*prx_body_rad + pry_body_rad*pry_body_rad + prz_body_rad*prz_body_rad < Rsq_dimor )
 				flag_noshadow = 0;
 		}
 		
 		// add radiation pressure if not in shadow
 		if ( flag_noshadow ) {
-			pr = sqrt(prx_star*prx_star + pry_star*pry_star + prz_star*prz_star);     // distance relative to star
+			pr_particle = sqrt(prx_star*prx_star + pry_star*pry_star + prz_star*prz_star);     // distance relative to star
 			//const double prvx = p.vx-star.vx;
 			//const double prvy = p.vy-star.vy;
 			//const double prvz = p.vz-star.vz;
 			//const double rdot = (prvx*prx_star + prvy*pry_star + prvz*prz_star)/pr;     // radial velocity relative to star
-			dfactor = SRP_coe/p.r * pow(AU/pr,2.0);
+			dfactor = SRP_coe/p.r * pow(AU/pr_particle,2.0);
 
 			// Equation (5) of Burns, Lamy, Soter (1979)
 			//particles[i].ax += dfactor*((1.-rdot/c)*prx_star/pr - prvx/c);
 			//particles[i].ay += dfactor*((1.-rdot/c)*pry_star/pr - prvy/c);
 			//particles[i].az += dfactor*((1.-rdot/c)*prz_star/pr - prvz/c);
-			particles[i].ax += dfactor*prx_star/pr;
-			particles[i].ay += dfactor*pry_star/pr;
-			particles[i].az += dfactor*prz_star/pr;
+			particles[i].ax += dfactor*prx_star/pr_particle;
+			particles[i].ay += dfactor*pry_star/pr_particle;
+			particles[i].az += dfactor*prz_star/pr_particle;
 		}
 		
 		// J2 of Didymos
-		pr   = prx_didy*prx_didy + pry_didy*pry_didy + prz_didy*prz_didy;
-		dfactor  = 3.0*r->G*J2_didy*Didymos.m*Didymos.r*Didymos.r/2./pow(pr,3.5);
+		pr_particle = prx_didy*prx_didy + pry_didy*pry_didy + prz_didy*prz_didy;
+		dfactor  = 3.0*r->G*J2_didy*Didymos.m*Didymos.r*Didymos.r/2./pow(pr_particle,3.5);
 		particles[i].ax += dfactor*prx_didy*(prx_didy*prx_didy + pry_didy*pry_didy - 4.*prz_didy*prz_didy);
 		particles[i].ay += dfactor*pry_didy*(prx_didy*prx_didy + pry_didy*pry_didy - 4.*prz_didy*prz_didy);
 		particles[i].az += dfactor*prz_didy*(3.*(prx_didy*prx_didy + pry_didy*pry_didy) - 2.*prz_didy*prz_didy);
 		
 		// J2 of Dimorphos
-		pr   = prx_dimor*prx_dimor + pry_dimor*pry_dimor + prz_dimor*prz_dimor;
-		dfactor  = 3.0*r->G*J2_dimor*Dimorphos.m*Dimorphos.r*Dimorphos.r/2./pow(pr,3.5);
+		pr_particle = prx_dimor*prx_dimor + pry_dimor*pry_dimor + prz_dimor*prz_dimor;
+		dfactor  = 3.0*r->G*J2_dimor*Dimorphos.m*Dimorphos.r*Dimorphos.r/2./pow(pr_particle,3.5);
 		particles[i].ax += dfactor*prx_dimor*(prx_dimor*prx_dimor + pry_dimor*pry_dimor - 4.*prz_dimor*prz_dimor);
 		particles[i].ay += dfactor*pry_dimor*(prx_dimor*prx_dimor + pry_dimor*pry_dimor - 4.*prz_dimor*prz_dimor);
 		particles[i].az += dfactor*prz_dimor*(3.*(prx_dimor*prx_dimor + pry_dimor*pry_dimor) - 2.*prz_dimor*prz_dimor);
@@ -544,10 +545,8 @@ void heartbeat(struct reb_simulation* r){
 		struct reb_particle* particles = r->particles;
 		const struct reb_particle Didymos = particles[0];
 		const struct reb_particle Dimorphos = particles[1];
-		int N = r->N;
 		
 		double dDisSQ_Didy, dDisSQ_Dimor;
-		unsigned int N_remove = 0;
 		unsigned int flag_remove;
 		
 		// delete and record collided particles
@@ -557,10 +556,10 @@ void heartbeat(struct reb_simulation* r){
 			return;
 		}
 
-		for ( int i=0;i<N;i++ ) {
+		int i = 4;
+		while (i < r->N) {
 
-			const struct reb_particle p = particles[i-N_remove];       // cache
-			if ( p.m > 0. ) continue;                                  // Only delete dust particles
+			const struct reb_particle p = r->particles[i];       // cache
 			
 			dDisSQ_Didy  = pow(p.x-Didymos.x,2) + pow(p.y-Didymos.y,2) + pow(p.z-Didymos.z,2);
 			dDisSQ_Dimor = pow(p.x-Dimorphos.x,2) + pow(p.y-Dimorphos.y,2) + pow(p.z-Dimorphos.z,2);
@@ -577,8 +576,10 @@ void heartbeat(struct reb_simulation* r){
 				fwrite( &(flag_remove), sizeof(int), 1, f_c );
 				fwrite( &(p.hash), sizeof(int), 1, f_c );
 				fwrite( &(r->t), sizeof(double), 1, f_c );
-				reb_simulation_remove_particle( r, i-N_remove, 1 );
-				N_remove++;
+				reb_simulation_remove_particle( r, i, 1 );
+				// Check the particle shifted into index i next.
+			} else {
+				i++;
 			}
 		}
 		fclose(f_c);
