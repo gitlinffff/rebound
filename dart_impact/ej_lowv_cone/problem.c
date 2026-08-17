@@ -43,6 +43,16 @@ typedef struct {
 	double z;
 } Vector3;
 
+enum {
+	IDX_DIDYMOS = 0,
+	IDX_DIMORPHOS,
+	IDX_SUN,
+	IDX_EARTH,
+	IDX_FIRST_DUST,
+	N_NON_DUST = IDX_FIRST_DUST,
+	N_GRAVITY_SOURCES = IDX_SUN + 1
+};
+
 double vectorNorm(Vector3 v) {
 	return sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
 }
@@ -173,7 +183,7 @@ int main(int argc, char* argv[]){
 		printf("Using IAS15 integrator\n");
 	}
 	r->dt                  = 1e1;    // Initial timestep, s
-	r->N_active            = 3;     // Only the Sun and the Didymos-Dimorphos system are massive, the dust particles are treated as test particles
+	r->N_active            = N_GRAVITY_SOURCES; // Didymos, Dimorphos, and the Sun generate gravity
 	r->additional_forces   = force_radiation;
 	r->heartbeat           = heartbeat;
 	r->G                   = G_const;
@@ -194,7 +204,7 @@ int main(int argc, char* argv[]){
 	Didymos.vx   =              T11 * v_DSB_t1.x + T12 * v_DSB_t1.y + T13 * v_DSB_t1.z;
 	Didymos.vy   = v_didy_com + T21 * v_DSB_t1.x + T22 * v_DSB_t1.y + T23 * v_DSB_t1.z;
 	Didymos.vz   =              T31 * v_DSB_t1.x + T32 * v_DSB_t1.y + T33 * v_DSB_t1.z;
-	Didymos.hash = 1;
+	Didymos.hash = IDX_DIDYMOS + 1;
 	reb_simulation_add(r, Didymos);
     
 	// Dimorphos
@@ -209,7 +219,7 @@ int main(int argc, char* argv[]){
 	Dimorphos.vx   =               T11 * v_DSB_t1.x + T12 * v_DSB_t1.y + T13 * v_DSB_t1.z;
 	Dimorphos.vy   = v_dimor_com + T21 * v_DSB_t1.x + T22 * v_DSB_t1.y + T23 * v_DSB_t1.z;
 	Dimorphos.vz   =               T31 * v_DSB_t1.x + T32 * v_DSB_t1.y + T33 * v_DSB_t1.z;
-	Dimorphos.hash = 2;
+	Dimorphos.hash = IDX_DIMORPHOS + 1;
 	reb_simulation_add(r, Dimorphos);
 	
 	// Sun
@@ -218,7 +228,7 @@ int main(int argc, char* argv[]){
 	star.x = - T11 * r_DSB_t0.x - T12 * r_DSB_t0.y - T13 * r_DSB_t0.z;
 	star.y = - T21 * r_DSB_t0.x - T22 * r_DSB_t0.y - T23 * r_DSB_t0.z;
 	star.z = - T31 * r_DSB_t0.x - T32 * r_DSB_t0.y - T33 * r_DSB_t0.z;
-	star.hash = 3;
+	star.hash = IDX_SUN + 1;
 	reb_simulation_add(r, star);
 
 	// Earth (Hubble Space Telescope)
@@ -230,10 +240,13 @@ int main(int argc, char* argv[]){
 	Earth.vx = T11 * v_Earth_t1.x + T12 * v_Earth_t1.y + T13 * v_Earth_t1.z;
 	Earth.vy = T21 * v_Earth_t1.x + T22 * v_Earth_t1.y + T23 * v_Earth_t1.z;
 	Earth.vz = T31 * v_Earth_t1.x + T32 * v_Earth_t1.y + T33 * v_Earth_t1.z;
-	Earth.hash = 4;
+	Earth.hash = IDX_EARTH + 1;
 	reb_simulation_add(r, Earth);
+	if (r->N != N_NON_DUST) {
+		reb_simulation_error(r, "Unexpected number of non-dust bodies.");
+		return 1;
+	}
 
-	unsigned int N_particles = 4; // current number of particles (didy, dimor, sun, earth)
 	unsigned int N_scanned = 0;   // record how many particles scanned in the input particle file
 	unsigned int N_didy = 0;      // record initial # of particles within radius of Didymos
 	unsigned int N_dimor = 0;     // record initial # of particles within radius of Dimorphos
@@ -302,8 +315,7 @@ int main(int argc, char* argv[]){
 				continue;
 			}
 
-			N_particles++;
-			p.hash = N_particles;
+			p.hash = (unsigned int)r->N + 1;
 			reb_simulation_add(r, p);
 		}
 		fclose(dust_file);
@@ -311,7 +323,7 @@ int main(int argc, char* argv[]){
 	}
 
 	fprintf(stdout, "Total # of particles scanned: %i\n", N_scanned);
-	fprintf(stdout, "Total # of particles registered: %i\n", N_particles);
+	fprintf(stdout, "Total # of particles registered: %i\n", r->N);
 	fprintf(stdout, "# of particles within Didymos: %i\n", N_didy);
 	fprintf(stdout, "# of particles within Dimorphos: %i\n", N_dimor);
 	fprintf(stdout, "# of particles outside of Hill radius: %i\n", N_hill);
@@ -359,9 +371,9 @@ void force_radiation(struct reb_simulation* r){
 	double SRP_coe = Q_pr * Fsun/c * 3.0/4.0/rho_dust;
 
 	struct reb_particle* particles = r->particles;
-	const struct reb_particle Didymos = particles[0];
-	const struct reb_particle Dimorphos = particles[1];
-	const struct reb_particle star = particles[2];            // cache
+	const struct reb_particle Didymos = particles[IDX_DIDYMOS];
+	const struct reb_particle Dimorphos = particles[IDX_DIMORPHOS];
+	const struct reb_particle star = particles[IDX_SUN];            // cache
 	const int N = r->N;
 	
 	double pr;
@@ -385,7 +397,7 @@ void force_radiation(struct reb_simulation* r){
 	
 	
 #pragma omp parallel for
-	for (int i=4;i<N;i++){ // Only dust particles feel radiation forces
+	for (int i=IDX_FIRST_DUST;i<N;i++){ // Only dust particles feel radiation forces
 
 		const struct reb_particle p = particles[i]; // cache
 		
@@ -463,16 +475,16 @@ void reb_move_to_Didymos(struct reb_simulation* const r){
 	const int N_real = r->N - r->N_var;
 	if (N_real>0){
 		struct reb_particle* restrict const particles = r->particles;
-		struct reb_particle hel = r->particles[0];
+		struct reb_particle hel = r->particles[IDX_DIDYMOS];
 		// Note: Variational particles will not be affected.
 		for (int i=1;i<N_real;i++){
 			particles[i].x  -= hel.x;
 			particles[i].y  -= hel.y;
 			particles[i].z  -= hel.z;
 		}
-		r->particles[0].x = 0.;
-		r->particles[0].y = 0.;
-		r->particles[0].z = 0.;
+		r->particles[IDX_DIDYMOS].x = 0.;
+		r->particles[IDX_DIDYMOS].y = 0.;
+		r->particles[IDX_DIDYMOS].z = 0.;
 	}
 }
 
@@ -480,8 +492,8 @@ void reb_simulation_move_to_DSB(struct reb_simulation* const r){
 	const int N_real = r->N - r->N_var;
 	if (N_real>0){
 		struct reb_particle* restrict const particles = r->particles;
-		struct reb_particle Didy = r->particles[0];
-		struct reb_particle Dimor = r->particles[1];
+		struct reb_particle Didy = r->particles[IDX_DIDYMOS];
+		struct reb_particle Dimor = r->particles[IDX_DIMORPHOS];
 		// position and velocity of the center of mass of Didymos and Dimorphos
 		double com_x = (Didy.m * Didy.x + Dimor.m * Dimor.x) / (Didy.m + Dimor.m);
 		double com_y = (Didy.m * Didy.y + Dimor.m * Dimor.y) / (Didy.m + Dimor.m);
@@ -543,8 +555,8 @@ void heartbeat(struct reb_simulation* r){
 		// In reality, dt is larger than 60 s. This chunk of code is executed every time steps
 
 		struct reb_particle* particles = r->particles;
-		const struct reb_particle Didymos = particles[0];
-		const struct reb_particle Dimorphos = particles[1];
+		const struct reb_particle Didymos = particles[IDX_DIDYMOS];
+		const struct reb_particle Dimorphos = particles[IDX_DIMORPHOS];
 		
 		double dDisSQ_Didy, dDisSQ_Dimor;
 		unsigned int flag_remove;
@@ -556,7 +568,7 @@ void heartbeat(struct reb_simulation* r){
 			return;
 		}
 
-		int i = 4;
+		int i = IDX_FIRST_DUST;
 		while (i < r->N) {
 
 			const struct reb_particle p = r->particles[i];       // cache
@@ -634,8 +646,8 @@ void heartbeat(struct reb_simulation* r){
 //particles orbits relative to barycenter of binary system
 	if(reb_simulation_output_check(r, 4320000.0)){
 		struct reb_particle* particles = r->particles;
-		const struct reb_particle Didymos = particles[0];
-		const struct reb_particle Dimorphos = particles[1];
+		const struct reb_particle Didymos = particles[IDX_DIDYMOS];
+		const struct reb_particle Dimorphos = particles[IDX_DIMORPHOS];
 		const int N = r->N;
 		struct reb_orbit orbit;
 
